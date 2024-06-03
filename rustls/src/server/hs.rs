@@ -3,6 +3,7 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 
+use async_trait::async_trait;
 use pki_types::DnsName;
 
 use super::server_conn::ServerConnectionData;
@@ -238,7 +239,7 @@ impl ExpectClientHello {
     }
 
     /// Continues handling of a `ClientHello` message once config and certificate are available.
-    pub(super) fn with_certified_key(
+    pub(super) async fn with_certified_key(
         self,
         mut sig_schemes: Vec<SignatureScheme>,
         client_hello: &ClientHelloPayload,
@@ -376,6 +377,7 @@ impl ExpectClientHello {
             client_hello.random,
             Random::new(self.config.provider.secure_random)?,
         );
+        // 准备server hello
         match suite {
             SupportedCipherSuite::Tls13(suite) => tls13::CompleteClientHelloHandling {
                 config: self.config,
@@ -386,7 +388,7 @@ impl ExpectClientHello {
                 send_tickets: self.send_tickets,
                 extra_exts: self.extra_exts,
             }
-            .handle_client_hello(cx, certkey, m, client_hello, skxg, sig_schemes),
+            .handle_client_hello(cx, certkey, m, client_hello, skxg, sig_schemes).await,
             #[cfg(feature = "tls12")]
             SupportedCipherSuite::Tls12(suite) => tls12::CompleteClientHelloHandling {
                 config: self.config,
@@ -406,7 +408,7 @@ impl ExpectClientHello {
                 skxg,
                 sig_schemes,
                 tls13_enabled,
-            ),
+            ).await,
         }
     }
 
@@ -537,8 +539,9 @@ impl ExpectClientHello {
     }
 }
 
+#[async_trait(?Send)] 
 impl State<ServerConnectionData> for ExpectClientHello {
-    fn handle<'m>(
+    async fn handle<'m>(
         self: Box<Self>,
         cx: &mut ServerContext<'_>,
         m: Message<'m>,
@@ -547,7 +550,7 @@ impl State<ServerConnectionData> for ExpectClientHello {
         Self: 'm,
     {
         let (client_hello, sig_schemes) = process_client_hello(&m, self.done_retry, cx)?;
-        self.with_certified_key(sig_schemes, client_hello, &m, cx)
+        self.with_certified_key(sig_schemes, client_hello, &m, cx).await
     }
 
     fn into_owned(self: Box<Self>) -> NextState<'static> {

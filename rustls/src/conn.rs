@@ -81,10 +81,10 @@ mod connection {
         /// Processes any new packets read by a previous call to [`Connection::read_tls`].
         ///
         /// See [`ConnectionCommon::process_new_packets()`] for more information.
-        pub fn process_new_packets(&mut self) -> Result<IoState, Error> {
+        pub async fn process_new_packets(&mut self) -> Result<IoState, Error> {
             match self {
-                Self::Client(conn) => conn.process_new_packets(),
-                Self::Server(conn) => conn.process_new_packets(),
+                Self::Client(conn) => conn.process_new_packets().await,
+                Self::Server(conn) => conn.process_new_packets().await,
             }
         }
 
@@ -106,14 +106,14 @@ mod connection {
         /// This function uses `io` to complete any outstanding IO for this connection.
         ///
         /// See [`ConnectionCommon::complete_io()`] for more information.
-        pub fn complete_io<T>(&mut self, io: &mut T) -> Result<(usize, usize), io::Error>
+        pub async fn complete_io<T>(&mut self, io: &mut T) -> Result<(usize, usize), io::Error>
         where
             Self: Sized,
             T: io::Read + io::Write,
         {
             match self {
-                Self::Client(conn) => conn.complete_io(io),
-                Self::Server(conn) => conn.complete_io(io),
+                Self::Client(conn) => conn.complete_io(io).await,
+                Self::Server(conn) => conn.complete_io(io).await,
             }
         }
 
@@ -394,9 +394,9 @@ impl<Data> ConnectionCommon<Data> {
     /// [`read_tls`]: Connection::read_tls
     /// [`process_new_packets`]: Connection::process_new_packets
     #[inline]
-    pub fn process_new_packets(&mut self) -> Result<IoState, Error> {
+    pub async fn process_new_packets(&mut self) -> Result<IoState, Error> {
         self.core
-            .process_new_packets(&mut self.deframer_buffer, &mut self.sendable_plaintext)
+            .process_new_packets(&mut self.deframer_buffer, &mut self.sendable_plaintext).await
     }
 
     /// Derives key material from the agreed connection secrets.
@@ -571,7 +571,7 @@ impl<Data> ConnectionCommon<Data> {
     /// [`write_tls`]: ConnectionCommon::write_tls
     /// [`read_tls`]: ConnectionCommon::read_tls
     /// [`process_new_packets`]: ConnectionCommon::process_new_packets
-    pub fn complete_io<T>(&mut self, io: &mut T) -> Result<(usize, usize), io::Error>
+    pub async fn complete_io<T>(&mut self, io: &mut T) -> Result<(usize, usize), io::Error>
     where
         Self: Sized,
         T: io::Read + io::Write,
@@ -621,7 +621,7 @@ impl<Data> ConnectionCommon<Data> {
                 }
             }
 
-            match self.process_new_packets() {
+            match self.process_new_packets().await {
                 Ok(_) => {}
                 Err(e) => {
                     // In case we have an alert to send describing this error,
@@ -815,7 +815,7 @@ impl<Data> ConnectionCore<Data> {
         }
     }
 
-    pub(crate) fn process_new_packets(
+    pub(crate) async fn process_new_packets(
         &mut self,
         deframer_buffer: &mut DeframerVecBuffer,
         sendable_plaintext: &mut ChunkVecBuffer,
@@ -852,7 +852,7 @@ impl<Data> ConnectionCore<Data> {
                 None => break,
             };
 
-            match self.process_msg(msg, state, Some(sendable_plaintext)) {
+            match self.process_msg(msg, state, Some(sendable_plaintext)).await {
                 Ok(new) => state = new,
                 Err(e) => {
                     self.state = Err(e.clone());
@@ -1076,7 +1076,7 @@ impl<Data> ConnectionCore<Data> {
         }
     }
 
-    fn process_msg(
+    async fn process_msg(
         &mut self,
         msg: InboundPlainMessage<'_>,
         state: Box<dyn State<Data>>,
@@ -1122,7 +1122,7 @@ impl<Data> ConnectionCore<Data> {
         }
 
         self.common_state
-            .process_main_protocol(msg, state, &mut self.data, sendable_plaintext)
+            .process_main_protocol(msg, state, &mut self.data, sendable_plaintext).await
     }
 
     pub(crate) fn export_keying_material<T: AsMut<[u8]>>(

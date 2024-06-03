@@ -14,8 +14,8 @@ use common::{
 };
 use rustls::{AlertDescription, Error, InvalidMessage};
 
-#[test]
-fn client_can_override_certificate_verification() {
+#[tokio::test]
+async fn client_can_override_certificate_verification() {
     for kt in ALL_KEY_TYPES.iter() {
         let verifier = Arc::new(MockServerVerifier::accepts_anything());
 
@@ -29,13 +29,13 @@ fn client_can_override_certificate_verification() {
 
             let (mut client, mut server) =
                 make_pair_for_arc_configs(&Arc::new(client_config), &server_config);
-            do_handshake(&mut client, &mut server);
+            do_handshake(&mut client, &mut server).await;
         }
     }
 }
 
-#[test]
-fn client_can_override_certificate_verification_and_reject_certificate() {
+#[tokio::test]
+async fn client_can_override_certificate_verification_and_reject_certificate() {
     for kt in ALL_KEY_TYPES.iter() {
         let verifier = Arc::new(MockServerVerifier::rejects_certificate(
             Error::InvalidMessage(InvalidMessage::HandshakePayloadTooLarge),
@@ -51,7 +51,7 @@ fn client_can_override_certificate_verification_and_reject_certificate() {
 
             let (mut client, mut server) =
                 make_pair_for_arc_configs(&Arc::new(client_config), &server_config);
-            let errs = do_handshake_until_both_error(&mut client, &mut server);
+            let errs = do_handshake_until_both_error(&mut client, &mut server).await;
             assert_eq!(
                 errs,
                 Err(vec![
@@ -66,8 +66,8 @@ fn client_can_override_certificate_verification_and_reject_certificate() {
 }
 
 #[cfg(feature = "tls12")]
-#[test]
-fn client_can_override_certificate_verification_and_reject_tls12_signatures() {
+#[tokio::test]
+async fn client_can_override_certificate_verification_and_reject_tls12_signatures() {
     for kt in ALL_KEY_TYPES.iter() {
         let mut client_config = make_client_config_with_versions(*kt, &[&rustls::version::TLS12]);
         let verifier = Arc::new(MockServerVerifier::rejects_tls12_signatures(
@@ -82,7 +82,7 @@ fn client_can_override_certificate_verification_and_reject_tls12_signatures() {
 
         let (mut client, mut server) =
             make_pair_for_arc_configs(&Arc::new(client_config), &server_config);
-        let errs = do_handshake_until_both_error(&mut client, &mut server);
+        let errs = do_handshake_until_both_error(&mut client, &mut server).await;
         assert_eq!(
             errs,
             Err(vec![
@@ -95,8 +95,8 @@ fn client_can_override_certificate_verification_and_reject_tls12_signatures() {
     }
 }
 
-#[test]
-fn client_can_override_certificate_verification_and_reject_tls13_signatures() {
+#[tokio::test]
+async fn client_can_override_certificate_verification_and_reject_tls13_signatures() {
     for kt in ALL_KEY_TYPES.iter() {
         let mut client_config = make_client_config_with_versions(*kt, &[&rustls::version::TLS13]);
         let verifier = Arc::new(MockServerVerifier::rejects_tls13_signatures(
@@ -111,7 +111,7 @@ fn client_can_override_certificate_verification_and_reject_tls13_signatures() {
 
         let (mut client, mut server) =
             make_pair_for_arc_configs(&Arc::new(client_config), &server_config);
-        let errs = do_handshake_until_both_error(&mut client, &mut server);
+        let errs = do_handshake_until_both_error(&mut client, &mut server).await;
         assert_eq!(
             errs,
             Err(vec![
@@ -124,8 +124,8 @@ fn client_can_override_certificate_verification_and_reject_tls13_signatures() {
     }
 }
 
-#[test]
-fn client_can_override_certificate_verification_and_offer_no_signature_schemes() {
+#[tokio::test]
+async fn client_can_override_certificate_verification_and_offer_no_signature_schemes() {
     for kt in ALL_KEY_TYPES.iter() {
         let verifier = Arc::new(MockServerVerifier::offers_no_signature_schemes());
 
@@ -139,7 +139,7 @@ fn client_can_override_certificate_verification_and_offer_no_signature_schemes()
 
             let (mut client, mut server) =
                 make_pair_for_arc_configs(&Arc::new(client_config), &server_config);
-            let errs = do_handshake_until_both_error(&mut client, &mut server);
+            let errs = do_handshake_until_both_error(&mut client, &mut server).await;
             assert_eq!(
                 errs,
                 Err(vec![

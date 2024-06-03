@@ -3,6 +3,7 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
+use async_trait::async_trait;
 use core::ops::Deref;
 
 use pki_types::ServerName;
@@ -645,8 +646,9 @@ pub(super) fn process_alpn_protocol(
     Ok(())
 }
 
+#[async_trait(?Send)] 
 impl State<ClientConnectionData> for ExpectServerHello {
-    fn handle<'m>(
+    async fn handle<'m>(
         mut self: Box<Self>,
         cx: &mut ClientContext<'_>,
         m: Message<'m>,
@@ -1058,8 +1060,9 @@ impl ExpectServerHelloOrHelloRetryRequest {
     }
 }
 
+#[async_trait(?Send)]
 impl State<ClientConnectionData> for ExpectServerHelloOrHelloRetryRequest {
-    fn handle<'m>(
+    async fn handle<'m>(
         self: Box<Self>,
         cx: &mut ClientContext<'_>,
         m: Message<'m>,
@@ -1077,7 +1080,7 @@ impl State<ClientConnectionData> for ExpectServerHelloOrHelloRetryRequest {
                 ..
             } => self
                 .into_expect_server_hello()
-                .handle(cx, m),
+                .handle(cx, m).await,
             MessagePayload::Handshake {
                 parsed:
                     HandshakeMessagePayload {

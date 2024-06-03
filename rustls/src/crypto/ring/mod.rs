@@ -1,6 +1,7 @@
 use alloc::sync::Arc;
 
-use pki_types::PrivateKeyDer;
+use alloc::vec::Vec;
+use pki_types::{CertificateDer, PrivateKeyDer};
 pub(crate) use ring as ring_like;
 use webpki::ring as webpki_algs;
 
@@ -56,6 +57,7 @@ impl SecureRandom for Ring {
 impl KeyProvider for Ring {
     fn load_private_key(
         &self,
+        _cert_chain: &Vec<CertificateDer<'static>>,
         key_der: PrivateKeyDer<'static>,
     ) -> Result<Arc<dyn SigningKey>, Error> {
         sign::any_supported_type(&key_der)

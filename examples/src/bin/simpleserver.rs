@@ -14,7 +14,8 @@ use std::io::{BufReader, Read, Write};
 use std::net::TcpListener;
 use std::sync::Arc;
 
-fn main() -> Result<(), Box<dyn StdError>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn StdError>> {
     let mut args = env::args();
     args.next();
     let cert_file = args
@@ -37,11 +38,11 @@ fn main() -> Result<(), Box<dyn StdError>> {
     let (mut stream, _) = listener.accept()?;
 
     let mut conn = rustls::ServerConnection::new(Arc::new(config))?;
-    conn.complete_io(&mut stream)?;
+    conn.complete_io(&mut stream).await?;
 
     conn.writer()
         .write_all(b"Hello from the server")?;
-    conn.complete_io(&mut stream)?;
+    conn.complete_io(&mut stream).await?;
     let mut buf = [0; 64];
     let len = conn.reader().read(&mut buf)?;
     println!("Received message from client: {:?}", &buf[..len]);

@@ -7,7 +7,7 @@ use core::fmt::Debug;
 use once_cell::race::OnceBox;
 #[cfg(feature = "std")]
 use once_cell::sync::OnceCell;
-use pki_types::PrivateKeyDer;
+use pki_types::{CertificateDer, PrivateKeyDer};
 use zeroize::Zeroize;
 
 use crate::sign::SigningKey;
@@ -361,6 +361,7 @@ pub trait KeyProvider: Send + Sync + Debug {
     /// Return an error if the key type encoding is not supported, or if the key fails validation.
     fn load_private_key(
         &self,
+        cert_chain: &Vec<CertificateDer<'static>>,
         key_der: PrivateKeyDer<'static>,
     ) -> Result<Arc<dyn SigningKey>, Error>;
 

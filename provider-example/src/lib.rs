@@ -6,6 +6,8 @@ extern crate std;
 
 use alloc::sync::Arc;
 
+use alloc::vec::Vec;
+use pki_types::CertificateDer;
 use rustls::crypto::CryptoProvider;
 use rustls::pki_types::PrivateKeyDer;
 
@@ -43,6 +45,7 @@ impl rustls::crypto::SecureRandom for Provider {
 impl rustls::crypto::KeyProvider for Provider {
     fn load_private_key(
         &self,
+        _cert_chain: &Vec<CertificateDer<'static>>,
         key_der: PrivateKeyDer<'static>,
     ) -> Result<Arc<dyn rustls::sign::SigningKey>, rustls::Error> {
         Ok(Arc::new(

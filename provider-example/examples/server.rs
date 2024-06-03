@@ -5,7 +5,8 @@ use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use rustls::server::Acceptor;
 use rustls::ServerConfig;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     env_logger::init();
 
     let pki = TestPki::new();
@@ -23,7 +24,10 @@ fn main() {
             }
         };
 
-        match accepted.into_connection(server_config.clone()) {
+        match accepted
+            .into_connection(server_config.clone())
+            .await
+        {
             Ok(mut conn) => {
                 let msg = concat!(
                     "HTTP/1.1 200 OK\r\n",
@@ -37,11 +41,15 @@ fn main() {
                 // Note: do not use `unwrap()` on IO in real programs!
                 conn.writer().write_all(msg).unwrap();
                 conn.write_tls(&mut stream).unwrap();
-                conn.complete_io(&mut stream).unwrap();
+                conn.complete_io(&mut stream)
+                    .await
+                    .unwrap();
 
                 conn.send_close_notify();
                 conn.write_tls(&mut stream).unwrap();
-                conn.complete_io(&mut stream).unwrap();
+                conn.complete_io(&mut stream)
+                    .await
+                    .unwrap();
             }
             Err((err, _)) => {
                 eprintln!("{err}");

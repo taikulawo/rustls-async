@@ -3,6 +3,7 @@ use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
 
+use async_trait::async_trait;
 use pki_types::ServerName;
 use subtle::ConstantTimeEq;
 
@@ -401,9 +402,9 @@ struct ExpectEncryptedExtensions {
     key_schedule: KeyScheduleHandshake,
     hello: ClientHelloDetails,
 }
-
+#[async_trait(?Send)] 
 impl State<ClientConnectionData> for ExpectEncryptedExtensions {
-    fn handle<'m>(
+    async fn handle<'m>(
         mut self: Box<Self>,
         cx: &mut ClientContext<'_>,
         m: Message<'m>,
@@ -536,9 +537,9 @@ struct ExpectCertificateOrCompressedCertificateOrCertReq {
     key_schedule: KeyScheduleHandshake,
     ech_retry_configs: Option<Vec<EchConfigPayload>>,
 }
-
+#[async_trait(?Send)] 
 impl State<ClientConnectionData> for ExpectCertificateOrCompressedCertificateOrCertReq {
-    fn handle<'m>(
+    async fn handle<'m>(
         self: Box<Self>,
         cx: &mut ClientContext<'_>,
         m: Message<'m>,
@@ -565,7 +566,7 @@ impl State<ClientConnectionData> for ExpectCertificateOrCompressedCertificateOrC
                 message_already_in_transcript: false,
                 ech_retry_configs: self.ech_retry_configs,
             })
-            .handle(cx, m),
+            .handle(cx, m).await,
             MessagePayload::Handshake {
                 parsed:
                     HandshakeMessagePayload {
@@ -583,7 +584,7 @@ impl State<ClientConnectionData> for ExpectCertificateOrCompressedCertificateOrC
                 client_auth: None,
                 ech_retry_configs: self.ech_retry_configs,
             })
-            .handle(cx, m),
+            .handle(cx, m).await,
             MessagePayload::Handshake {
                 parsed:
                     HandshakeMessagePayload {
@@ -601,7 +602,7 @@ impl State<ClientConnectionData> for ExpectCertificateOrCompressedCertificateOrC
                 offered_cert_compression: true,
                 ech_retry_configs: self.ech_retry_configs,
             })
-            .handle(cx, m),
+            .handle(cx, m).await,
             payload => Err(inappropriate_handshake_message(
                 &payload,
                 &[ContentType::Handshake],
@@ -629,9 +630,9 @@ struct ExpectCertificateOrCompressedCertificate {
     client_auth: Option<ClientAuthDetails>,
     ech_retry_configs: Option<Vec<EchConfigPayload>>,
 }
-
+#[async_trait(?Send)] 
 impl State<ClientConnectionData> for ExpectCertificateOrCompressedCertificate {
-    fn handle<'m>(
+    async fn handle<'m>(
         self: Box<Self>,
         cx: &mut ClientContext<'_>,
         m: Message<'m>,
@@ -658,7 +659,7 @@ impl State<ClientConnectionData> for ExpectCertificateOrCompressedCertificate {
                 message_already_in_transcript: false,
                 ech_retry_configs: self.ech_retry_configs,
             })
-            .handle(cx, m),
+            .handle(cx, m).await,
             MessagePayload::Handshake {
                 parsed:
                     HandshakeMessagePayload {
@@ -676,7 +677,7 @@ impl State<ClientConnectionData> for ExpectCertificateOrCompressedCertificate {
                 client_auth: self.client_auth,
                 ech_retry_configs: self.ech_retry_configs,
             })
-            .handle(cx, m),
+            .handle(cx, m).await,
             payload => Err(inappropriate_handshake_message(
                 &payload,
                 &[ContentType::Handshake],
@@ -703,8 +704,9 @@ struct ExpectCertificateOrCertReq {
     ech_retry_configs: Option<Vec<EchConfigPayload>>,
 }
 
+#[async_trait(?Send)] 
 impl State<ClientConnectionData> for ExpectCertificateOrCertReq {
-    fn handle<'m>(
+    async fn handle<'m>(
         self: Box<Self>,
         cx: &mut ClientContext<'_>,
         m: Message<'m>,
@@ -731,7 +733,7 @@ impl State<ClientConnectionData> for ExpectCertificateOrCertReq {
                 message_already_in_transcript: false,
                 ech_retry_configs: self.ech_retry_configs,
             })
-            .handle(cx, m),
+            .handle(cx, m).await,
             MessagePayload::Handshake {
                 parsed:
                     HandshakeMessagePayload {
@@ -749,7 +751,7 @@ impl State<ClientConnectionData> for ExpectCertificateOrCertReq {
                 offered_cert_compression: false,
                 ech_retry_configs: self.ech_retry_configs,
             })
-            .handle(cx, m),
+            .handle(cx, m).await,
             payload => Err(inappropriate_handshake_message(
                 &payload,
                 &[ContentType::Handshake],
@@ -779,9 +781,9 @@ struct ExpectCertificateRequest {
     offered_cert_compression: bool,
     ech_retry_configs: Option<Vec<EchConfigPayload>>,
 }
-
+#[async_trait(?Send)] 
 impl State<ClientConnectionData> for ExpectCertificateRequest {
-    fn handle<'m>(
+    async fn handle<'m>(
         mut self: Box<Self>,
         cx: &mut ClientContext<'_>,
         m: Message<'m>,
@@ -887,8 +889,9 @@ struct ExpectCompressedCertificate {
     ech_retry_configs: Option<Vec<EchConfigPayload>>,
 }
 
+#[async_trait(?Send)] 
 impl State<ClientConnectionData> for ExpectCompressedCertificate {
-    fn handle<'m>(
+    async fn handle<'m>(
         mut self: Box<Self>,
         cx: &mut ClientContext<'_>,
         m: Message<'m>,
@@ -974,7 +977,7 @@ impl State<ClientConnectionData> for ExpectCompressedCertificate {
             message_already_in_transcript: true,
             ech_retry_configs: self.ech_retry_configs,
         })
-        .handle(cx, m)
+        .handle(cx, m).await
     }
 
     fn into_owned(self: Box<Self>) -> hs::NextState<'static> {
@@ -994,8 +997,9 @@ struct ExpectCertificate {
     ech_retry_configs: Option<Vec<EchConfigPayload>>,
 }
 
+#[async_trait(?Send)] 
 impl State<ClientConnectionData> for ExpectCertificate {
-    fn handle<'m>(
+    async fn handle<'m>(
         mut self: Box<Self>,
         cx: &mut ClientContext<'_>,
         m: Message<'m>,
@@ -1066,9 +1070,9 @@ struct ExpectCertificateVerify<'a> {
     client_auth: Option<ClientAuthDetails>,
     ech_retry_configs: Option<Vec<EchConfigPayload>>,
 }
-
+#[async_trait(?Send)] 
 impl State<ClientConnectionData> for ExpectCertificateVerify<'_> {
-    fn handle<'m>(
+    async fn handle<'m>(
         mut self: Box<Self>,
         cx: &mut ClientContext<'_>,
         m: Message<'m>,
@@ -1208,7 +1212,7 @@ fn emit_certificate_tls13(
     common.send_msg(m, true);
 }
 
-fn emit_certverify_tls13(
+async fn emit_certverify_tls13(
     transcript: &mut HandshakeHash,
     signer: &dyn Signer,
     common: &mut CommonState,
@@ -1216,7 +1220,7 @@ fn emit_certverify_tls13(
     let message = construct_client_verify_message(&transcript.current_hash());
 
     let scheme = signer.scheme();
-    let sig = signer.sign(&message)?;
+    let sig = signer.sign(&message).await?;
     let dss = DigitallySignedStruct::new(scheme, sig);
 
     let m = Message {
@@ -1280,9 +1284,9 @@ struct ExpectFinished {
     sig_verified: verify::HandshakeSignatureValid,
     ech_retry_configs: Option<Vec<EchConfigPayload>>,
 }
-
+#[async_trait(?Send)] 
 impl State<ClientConnectionData> for ExpectFinished {
-    fn handle<'m>(
+    async fn handle<'m>(
         self: Box<Self>,
         cx: &mut ClientContext<'_>,
         m: Message<'m>,
@@ -1362,7 +1366,7 @@ impl State<ClientConnectionData> for ExpectFinished {
                             cx.common,
                         );
                     }
-                    emit_certverify_tls13(&mut st.transcript, signer.as_ref(), cx.common)?;
+                    emit_certverify_tls13(&mut st.transcript, signer.as_ref(), cx.common).await?;
                 }
             }
         }
@@ -1515,9 +1519,9 @@ impl ExpectTraffic {
         Ok(())
     }
 }
-
+#[async_trait(?Send)]
 impl State<ClientConnectionData> for ExpectTraffic {
-    fn handle<'m>(
+    async fn handle<'m>(
         mut self: Box<Self>,
         cx: &mut ClientContext<'_>,
         m: Message<'m>,
@@ -1583,9 +1587,9 @@ impl State<ClientConnectionData> for ExpectTraffic {
 }
 
 struct ExpectQuicTraffic(ExpectTraffic);
-
+#[async_trait(?Send)] 
 impl State<ClientConnectionData> for ExpectQuicTraffic {
-    fn handle<'m>(
+    async fn handle<'m>(
         mut self: Box<Self>,
         cx: &mut ClientContext<'_>,
         m: Message<'m>,

@@ -1,6 +1,7 @@
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use async_trait::async_trait;
 use core::fmt;
 use core::fmt::{Debug, Formatter};
 use core::marker::PhantomData;
@@ -917,7 +918,7 @@ impl Accepted {
     /// [`sign::CertifiedKey`] that should be used for the session. Returns an error if
     /// configuration-dependent validation of the received `ClientHello` message fails.
     #[cfg(feature = "std")]
-    pub fn into_connection(
+    pub async fn into_connection(
         mut self,
         config: Arc<ServerConfig>,
     ) -> Result<ServerConnection, (Error, AcceptedAlert)> {
@@ -936,7 +937,10 @@ impl Accepted {
         let mut cx = hs::ServerContext::from(&mut self.connection);
 
         let ch = Self::client_hello_payload(&self.message);
-        let new = match state.with_certified_key(self.sig_schemes, ch, &self.message, &mut cx) {
+        let new = match state
+            .with_certified_key(self.sig_schemes, ch, &self.message, &mut cx)
+            .await
+        {
             Ok(new) => new,
             Err(err) => return Err((err, AcceptedAlert::from(self.connection))),
         };
@@ -969,8 +973,9 @@ impl Debug for Accepted {
 struct Accepting;
 
 #[cfg(feature = "std")]
+#[async_trait(?Send)]
 impl State<ServerConnectionData> for Accepting {
-    fn handle<'m>(
+    async fn handle<'m>(
         self: Box<Self>,
         _cx: &mut hs::ServerContext<'_>,
         _m: Message<'m>,

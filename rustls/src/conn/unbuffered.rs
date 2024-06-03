@@ -15,18 +15,18 @@ use crate::Error;
 impl UnbufferedConnectionCommon<ClientConnectionData> {
     /// Processes the TLS records in `incoming_tls` buffer until a new [`UnbufferedStatus`] is
     /// reached.
-    pub fn process_tls_records<'c, 'i>(
+    pub async fn process_tls_records<'c, 'i>(
         &'c mut self,
         incoming_tls: &'i mut [u8],
     ) -> UnbufferedStatus<'c, 'i, ClientConnectionData> {
-        self.process_tls_records_common(incoming_tls, |_| None, |_, _, ()| unreachable!())
+        self.process_tls_records_common(incoming_tls, |_| None, |_, _, ()| unreachable!()).await
     }
 }
 
 impl UnbufferedConnectionCommon<ServerConnectionData> {
     /// Processes the TLS records in `incoming_tls` buffer until a new [`UnbufferedStatus`] is
     /// reached.
-    pub fn process_tls_records<'c, 'i>(
+    pub async fn process_tls_records<'c, 'i>(
         &'c mut self,
         incoming_tls: &'i mut [u8],
     ) -> UnbufferedStatus<'c, 'i, ServerConnectionData> {
@@ -34,12 +34,12 @@ impl UnbufferedConnectionCommon<ServerConnectionData> {
             incoming_tls,
             |conn| conn.pop_early_data(),
             |conn, incoming_tls, chunk| ReadEarlyData::new(conn, incoming_tls, chunk).into(),
-        )
+        ).await
     }
 }
 
 impl<Data> UnbufferedConnectionCommon<Data> {
-    fn process_tls_records_common<'c, 'i, T>(
+    async fn process_tls_records_common<'c, 'i, T>(
         &'c mut self,
         incoming_tls: &'i mut [u8],
         mut check: impl FnMut(&mut Self) -> Option<T>,
@@ -106,7 +106,7 @@ impl<Data> UnbufferedConnectionCommon<Data> {
                         }
                     };
 
-                match self.core.process_msg(msg, state, None) {
+                match self.core.process_msg(msg, state, None).await {
                     Ok(new) => state = new,
 
                     Err(e) => {

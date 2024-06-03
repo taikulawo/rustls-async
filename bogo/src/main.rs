@@ -855,7 +855,7 @@ fn quit_err(why: &str) -> ! {
     process::exit(1)
 }
 
-fn handle_err(opts: &Options, err: Error) -> ! {
+fn handle_err(err: Error) -> ! {
     println!("TLS error: {:?}", err);
     thread::sleep(time::Duration::from_millis(100));
 
@@ -893,15 +893,7 @@ fn handle_err(opts: &Options, err: Error) -> ! {
         | Error::InvalidMessage(InvalidMessage::InvalidEmptyPayload)
         | Error::InvalidMessage(InvalidMessage::UnknownProtocolVersion)
         | Error::InvalidMessage(InvalidMessage::MessageTooLarge) => quit(":GARBAGE:"),
-        Error::InvalidMessage(InvalidMessage::MessageTooShort)
-            if opts.enable_ech_grease || opts.ech_config_list.is_some() =>
-        {
-            quit(":ERROR_PARSING_EXTENSION:")
-        }
         Error::InvalidMessage(InvalidMessage::UnexpectedMessage(_)) => quit(":GARBAGE:"),
-        Error::DecryptError if opts.ech_config_list.is_some() => {
-            quit(":INCONSISTENT_ECH_NEGOTIATION:")
-        }
         Error::DecryptError => quit(":DECRYPTION_FAILED_OR_BAD_RECORD_MAC:"),
         Error::NoApplicationProtocol => quit(":NO_APPLICATION_PROTOCOL:"),
         Error::PeerIncompatible(
@@ -936,31 +928,6 @@ fn handle_err(opts: &Options, err: Error) -> ! {
         }
         Error::PeerMisbehaved(PeerMisbehaved::OfferedDuplicateCertificateCompressions) => {
             quit(":ERROR_PARSING_EXTENSION:")
-        }
-        Error::PeerMisbehaved(PeerMisbehaved::SelectedUnofferedCipherSuite) => {
-            quit(":WRONG_CIPHER_RETURNED:")
-        }
-        Error::PeerMisbehaved(PeerMisbehaved::TooManyWarningAlertsReceived) => {
-            quit(":TOO_MANY_WARNING_ALERTS:")
-        }
-        Error::PeerMisbehaved(PeerMisbehaved::TooManyKeyUpdateRequests) => {
-            quit(":TOO_MANY_KEY_UPDATES:")
-        }
-        Error::PeerMisbehaved(PeerMisbehaved::TooManyEmptyFragments) => {
-            quit(":TOO_MANY_EMPTY_FRAGMENTS:")
-        }
-        Error::PeerMisbehaved(PeerMisbehaved::IllegalHelloRetryRequestWithInvalidEch)
-        | Error::PeerMisbehaved(PeerMisbehaved::UnsolicitedEchExtension) => {
-            quit(":UNEXPECTED_EXTENSION:")
-        }
-        // The TLS-ECH-Client-UnsolicitedInnerServerNameAck test is expected to fail with
-        // :UNEXPECTED_EXTENSION: when we receive an unsolicited inner hello SNI extension.
-        // We treat this the same as any unexpected enc'd ext and return :PEER_MISBEHAVIOUR:.
-        // Convert to the expected if this error occurs when we're configured w/ ECH.
-        Error::PeerMisbehaved(PeerMisbehaved::UnsolicitedEncryptedExtension)
-            if opts.ech_config_list.is_some() =>
-        {
-            quit(":UNEXPECTED_EXTENSION:")
         }
         Error::PeerMisbehaved(_) => quit(":PEER_MISBEHAVIOUR:"),
         Error::NoCertificatesPresented => quit(":NO_CERTS:"),
@@ -1004,14 +971,14 @@ fn server(conn: &mut Connection) -> &mut ServerConnection {
 
 const MAX_MESSAGE_SIZE: usize = 0xffff + 5;
 
-fn after_read(opts: &Options, sess: &mut Connection, conn: &mut net::TcpStream) {
-    if let Err(err) = sess.process_new_packets() {
+async fn after_read(sess: &mut Connection, conn: &mut net::TcpStream) {
+    if let Err(err) = sess.process_new_packets().await {
         flush(sess, conn); /* send any alerts before exiting */
-        handle_err(opts, err);
+        handle_err(err);
     }
 }
 
-fn read_n_bytes(opts: &Options, sess: &mut Connection, conn: &mut net::TcpStream, n: usize) {
+async fn read_n_bytes(sess: &mut Connection, conn: &mut net::TcpStream, n: usize) {
     let mut bytes = [0u8; MAX_MESSAGE_SIZE];
     match conn.read(&mut bytes[..n]) {
         Ok(count) => {
@@ -1023,20 +990,20 @@ fn read_n_bytes(opts: &Options, sess: &mut Connection, conn: &mut net::TcpStream
         Err(err) => panic!("invalid read: {}", err),
     };
 
-    after_read(opts, sess, conn);
+    after_read(sess, conn).await;
 }
 
-fn read_all_bytes(opts: &Options, sess: &mut Connection, conn: &mut net::TcpStream) {
+async fn read_all_bytes(sess: &mut Connection, conn: &mut net::TcpStream) {
     match sess.read_tls(conn) {
         Ok(_) => {}
         Err(ref err) if err.kind() == io::ErrorKind::ConnectionReset => {}
         Err(err) => panic!("invalid read: {}", err),
     };
 
-    after_read(opts, sess, conn);
+    after_read(sess, conn).await;
 }
 
-fn exec(opts: &Options, mut sess: Connection, count: usize) {
+async fn exec(opts: &Options, mut sess: Connection, count: usize) {
     let mut sent_message = false;
 
     let addrs = [
@@ -1060,7 +1027,7 @@ fn exec(opts: &Options, mut sess: Connection, count: usize) {
             {
                 flush(&mut sess, &mut conn);
                 for message_size_estimate in &opts.queue_early_data_after_received_messages {
-                    read_n_bytes(opts, &mut sess, &mut conn, *message_size_estimate);
+                    read_n_bytes(&mut sess, &mut conn, *message_size_estimate).await;
                 }
                 println!("now ready for early data");
             }
@@ -1086,7 +1053,7 @@ fn exec(opts: &Options, mut sess: Connection, count: usize) {
         }
 
         if sess.wants_read() {
-            read_all_bytes(opts, &mut sess, &mut conn);
+            read_all_bytes(&mut sess, &mut conn).await;
         }
 
         if opts.side == Side::Server && opts.enable_early_data {
@@ -1275,8 +1242,8 @@ fn exec(opts: &Options, mut sess: Connection, count: usize) {
             .unwrap();
     }
 }
-
-pub fn main() {
+#[tokio::main]
+pub async fn main() {
     let mut args: Vec<_> = env::args().collect();
     env_logger::init();
 
@@ -1614,7 +1581,6 @@ pub fn main() {
             "-expect-no-session" |
             "-expect-ticket-renewal" |
             "-enable-ocsp-stapling" |
-            "-forbid-renegotiation-after-handshake" |
             // internal openssl details:
             "-async" |
             "-implicit-handshake" |
@@ -1667,12 +1633,12 @@ pub fn main() {
             "-no-rsa-pss-rsae-certs" |
             "-ignore-tls13-downgrade" |
             "-allow-hint-mismatch" |
+            "-fips-202205" |
             "-wpa-202304" |
             "-srtp-profiles" |
             "-permute-extensions" |
             "-signed-cert-timestamps" |
-            "-on-initial-expect-peer-cert-file" |
-            "-use-custom-verify-callback" => {
+            "-on-initial-expect-peer-cert-file" => {
                 println!("NYI option {:?}", arg);
                 process::exit(BOGO_NACK);
             }
@@ -1693,12 +1659,12 @@ pub fn main() {
 
     println!("opts {:?}", opts);
 
-    let (mut client_cfg, mut server_cfg) = match opts.side {
+    let (client_cfg, mut server_cfg) = match opts.side {
         Side::Client => (Some(make_client_cfg(&opts)), None),
         Side::Server => (None, Some(make_server_cfg(&opts))),
     };
 
-    fn make_session(
+    async fn make_session(
         opts: &Options,
         scfg: &Option<Arc<ServerConfig>>,
         ccfg: &Option<Arc<ClientConfig>>,
@@ -1726,17 +1692,11 @@ pub fn main() {
     }
 
     for i in 0..opts.resumes + 1 {
-        let sess = make_session(&opts, &server_cfg, &client_cfg);
-        exec(&opts, sess, i);
+        let sess = make_session(&opts, &server_cfg, &client_cfg).await;
+        exec(&opts, sess, i).await;
         if opts.resume_with_tickets_disabled {
             opts.tickets = false;
             server_cfg = Some(make_server_cfg(&opts));
-        }
-        if opts.on_resume_ech_config_list.is_some() {
-            opts.ech_config_list
-                .clone_from(&opts.on_resume_ech_config_list);
-            opts.expect_ech_accept = opts.on_resume_expect_ech_accept;
-            client_cfg = Some(make_client_cfg(&opts));
         }
         opts.expect_handshake_kind
             .clone_from(&opts.expect_handshake_kind_resumed);

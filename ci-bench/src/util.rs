@@ -480,7 +480,7 @@ pub mod transport {
         // Feed the data to rustls
         let in_memory_reader = &mut &buf[..length];
         while conn.read_tls(in_memory_reader)? != 0 {
-            conn.process_new_packets()?;
+            conn.process_new_packets().await?;
         }
 
         Ok(length)
@@ -524,7 +524,7 @@ pub mod transport {
                 chunk_buf_offset += read;
 
                 // Process packets to free space in the message buffer
-                let state = client.process_new_packets()?;
+                let state = client.process_new_packets().await?;
                 let available_plaintext_bytes = state.plaintext_bytes_to_read();
                 let mut plaintext_bytes_read = 0;
                 while plaintext_bytes_read < available_plaintext_bytes {

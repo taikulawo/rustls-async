@@ -1,6 +1,7 @@
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use async_trait::async_trait;
 use core::fmt::Debug;
 
 use pki_types::{AlgorithmIdentifier, CertificateDer, SubjectPublicKeyInfoDer};
@@ -72,6 +73,7 @@ pub trait SigningKey: Debug + Send + Sync {
 }
 
 /// A thing that can sign a message.
+#[async_trait]
 pub trait Signer: Debug + Send + Sync {
     /// Signs `message` using the selected scheme.
     ///
@@ -79,7 +81,7 @@ pub trait Signer: Debug + Send + Sync {
     /// implicit in [`Self::scheme()`].
     ///
     /// The returned signature format is also defined by [`Self::scheme()`].
-    fn sign(&self, message: &[u8]) -> Result<Vec<u8>, Error>;
+    async fn sign(&self, message: &[u8]) -> Result<Vec<u8>, Error>;
 
     /// Reveals which scheme will be used when you call [`Self::sign()`].
     fn scheme(&self) -> SignatureScheme;

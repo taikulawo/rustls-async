@@ -3,6 +3,7 @@ use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
 
+use async_trait::async_trait;
 pub(super) use client_hello::CompleteClientHelloHandling;
 use pki_types::{CertificateDer, UnixTime};
 use subtle::ConstantTimeEq;
@@ -35,6 +36,7 @@ use crate::{compress, rand, verify};
 
 mod client_hello {
     use super::*;
+    use crate::common_state::Context;
     use crate::compress::CertCompressor;
     use crate::crypto::SupportedKxGroup;
     use crate::enums::SignatureScheme;
@@ -126,7 +128,7 @@ mod client_hello {
             }
         }
 
-        pub(in crate::server) fn handle_client_hello(
+        pub(in crate::server) async fn handle_client_hello(
             mut self,
             cx: &mut ServerContext<'_>,
             server_key: ActiveCertifiedKey<'_>,
@@ -388,12 +390,14 @@ mod client_hello {
                         ocsp_response,
                     );
                 }
+                // server private key 签名
+                // client 将用证书的public key验签
                 emit_certificate_verify_tls13(
                     &mut self.transcript,
-                    cx.common,
+                    cx,
                     server_key.get_key(),
                     &sigschemes_ext,
-                )?;
+                ).await?;
                 client_auth
             } else {
                 false
@@ -805,14 +809,15 @@ mod client_hello {
         common.send_msg(c, true);
     }
 
-    fn emit_certificate_verify_tls13(
+    async fn emit_certificate_verify_tls13(
         transcript: &mut HandshakeHash,
-        common: &mut CommonState,
+        cx: &mut Context<'_, ServerConnectionData>,
         signing_key: &dyn sign::SigningKey,
         schemes: &[SignatureScheme],
     ) -> Result<(), Error> {
+        // 逐渐将之前handshake的数据进行hash累加
         let message = construct_server_verify_message(&transcript.current_hash());
-
+        let common = &mut cx.common;
         let signer = signing_key
             .choose_scheme(schemes)
             .ok_or_else(|| {
@@ -823,7 +828,12 @@ mod client_hello {
             })?;
 
         let scheme = signer.scheme();
-        let sig = signer.sign(&message)?;
+        // 对以往过程的hash签名，作为TLS1.3 Certificate Verify message发到client
+        // keyless的offload需要将sign异步化
+        // 如果不传cx，而是sign时现创建新的signer将cx传进去也行
+        // 只改sign接口，而不需要动这里
+        //
+        let sig = signer.sign(&message).await?;
 
         let cv = DigitallySignedStruct::new(scheme, sig);
 
@@ -880,9 +890,9 @@ struct ExpectAndSkipRejectedEarlyData {
     skip_data_left: usize,
     next: Box<hs::ExpectClientHello>,
 }
-
+#[async_trait(?Send)]
 impl State<ServerConnectionData> for ExpectAndSkipRejectedEarlyData {
-    fn handle<'m>(
+    async fn handle<'m>(
         mut self: Box<Self>,
         cx: &mut ServerContext<'_>,
         m: Message<'m>,
@@ -901,7 +911,7 @@ impl State<ServerConnectionData> for ExpectAndSkipRejectedEarlyData {
             }
         }
 
-        self.next.handle(cx, m)
+        self.next.handle(cx, m).await
     }
 
     fn into_owned(self: Box<Self>) -> hs::NextState<'static> {
@@ -917,8 +927,9 @@ struct ExpectCertificateOrCompressedCertificate {
     send_tickets: usize,
 }
 
+#[async_trait(?Send)] 
 impl State<ServerConnectionData> for ExpectCertificateOrCompressedCertificate {
-    fn handle<'m>(
+    async fn handle<'m>(
         self: Box<Self>,
         cx: &mut ServerContext<'_>,
         m: Message<'m>,
@@ -942,7 +953,7 @@ impl State<ServerConnectionData> for ExpectCertificateOrCompressedCertificate {
                 send_tickets: self.send_tickets,
                 message_already_in_transcript: false,
             })
-            .handle(cx, m),
+            .handle(cx, m).await,
 
             MessagePayload::Handshake {
                 parsed:
@@ -958,7 +969,7 @@ impl State<ServerConnectionData> for ExpectCertificateOrCompressedCertificate {
                 key_schedule: self.key_schedule,
                 send_tickets: self.send_tickets,
             })
-            .handle(cx, m),
+            .handle(cx, m).await,
 
             payload => Err(inappropriate_handshake_message(
                 &payload,
@@ -984,8 +995,9 @@ struct ExpectCompressedCertificate {
     send_tickets: usize,
 }
 
+#[async_trait(?Send)]
 impl State<ServerConnectionData> for ExpectCompressedCertificate {
-    fn handle<'m>(
+    async fn handle<'m>(
         mut self: Box<Self>,
         cx: &mut ServerContext<'_>,
         m: Message<'m>,
@@ -1069,6 +1081,7 @@ impl State<ServerConnectionData> for ExpectCompressedCertificate {
             message_already_in_transcript: true,
         })
         .handle(cx, m)
+        .await
     }
 
     fn into_owned(self: Box<Self>) -> hs::NextState<'static> {
@@ -1085,8 +1098,9 @@ struct ExpectCertificate {
     message_already_in_transcript: bool,
 }
 
+#[async_trait(?Send)]
 impl State<ServerConnectionData> for ExpectCertificate {
-    fn handle<'m>(
+    async fn handle<'m>(
         mut self: Box<Self>,
         cx: &mut ServerContext<'_>,
         m: Message<'m>,
@@ -1172,8 +1186,9 @@ struct ExpectCertificateVerify {
     send_tickets: usize,
 }
 
+#[async_trait(?Send)]
 impl State<ServerConnectionData> for ExpectCertificateVerify {
-    fn handle<'m>(
+    async fn handle<'m>(
         mut self: Box<Self>,
         cx: &mut ServerContext<'_>,
         m: Message<'m>,
@@ -1232,8 +1247,9 @@ struct ExpectEarlyData {
     send_tickets: usize,
 }
 
+#[async_trait(?Send)]
 impl State<ServerConnectionData> for ExpectEarlyData {
-    fn handle<'m>(
+    async fn handle<'m>(
         mut self: Box<Self>,
         cx: &mut ServerContext<'_>,
         m: Message<'m>,
@@ -1392,8 +1408,9 @@ impl ExpectFinished {
     }
 }
 
+#[async_trait(?Send)]
 impl State<ServerConnectionData> for ExpectFinished {
-    fn handle<'m>(
+    async fn handle<'m>(
         mut self: Box<Self>,
         cx: &mut ServerContext<'_>,
         m: Message<'m>,
@@ -1489,8 +1506,9 @@ impl ExpectTraffic {
     }
 }
 
+#[async_trait(?Send)]
 impl State<ServerConnectionData> for ExpectTraffic {
-    fn handle<'m>(
+    async fn handle<'m>(
         mut self: Box<Self>,
         cx: &mut ServerContext<'_>,
         m: Message<'m>,
@@ -1552,8 +1570,9 @@ struct ExpectQuicTraffic {
     _fin_verified: verify::FinishedMessageVerified,
 }
 
+#[async_trait(?Send)]
 impl State<ServerConnectionData> for ExpectQuicTraffic {
-    fn handle<'m>(
+    async fn handle<'m>(
         self: Box<Self>,
         _cx: &mut ServerContext<'_>,
         m: Message<'m>,
