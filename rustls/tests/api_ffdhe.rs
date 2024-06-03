@@ -17,8 +17,8 @@ use rustls::internal::msgs::message::{Message, MessagePayload};
 use rustls::version::{TLS12, TLS13};
 use rustls::{CipherSuite, ClientConfig};
 
-#[test]
-fn config_builder_for_client_rejects_cipher_suites_without_compatible_kx_groups() {
+#[tokio::test]
+async fn config_builder_for_client_rejects_cipher_suites_without_compatible_kx_groups() {
     let bad_crypto_provider = CryptoProvider {
         kx_groups: vec![&ffdhe::FFDHE2048_KX_GROUP],
         cipher_suites: vec![
@@ -41,8 +41,8 @@ fn config_builder_for_client_rejects_cipher_suites_without_compatible_kx_groups(
     assert!(build_err.contains("key exchange"));
 }
 
-#[test]
-fn ffdhe_ciphersuite() {
+#[tokio::test]
+async fn ffdhe_ciphersuite() {
     use provider::cipher_suite;
     use rustls::version::{TLS12, TLS13};
 
@@ -69,12 +69,12 @@ fn ffdhe_ciphersuite() {
             server_config,
             expected_cipher_suite,
             expected_protocol.version,
-        );
+        ).await;
     }
 }
 
-#[test]
-fn server_picks_ffdhe_group_when_clienthello_has_no_ffdhe_group_in_groups_ext() {
+#[tokio::test]
+async fn server_picks_ffdhe_group_when_clienthello_has_no_ffdhe_group_in_groups_ext() {
     fn clear_named_groups_ext(msg: &mut Message) -> Altered {
         if let MessagePayload::Handshake { parsed, encoded } = &mut msg.payload {
             if let HandshakePayload::ClientHello(ch) = &mut parsed.payload {
@@ -105,11 +105,11 @@ fn server_picks_ffdhe_group_when_clienthello_has_no_ffdhe_group_in_groups_ext() 
     let (client, server) = make_pair_for_configs(client_config, server_config);
     let (mut client, mut server) = (client.into(), server.into());
     transfer_altered(&mut client, clear_named_groups_ext, &mut server);
-    assert!(server.process_new_packets().is_ok());
+    assert!(server.process_new_packets().await.is_ok());
 }
 
-#[test]
-fn server_picks_ffdhe_group_when_clienthello_has_no_groups_ext() {
+#[tokio::test]
+async fn server_picks_ffdhe_group_when_clienthello_has_no_groups_ext() {
     fn remove_named_groups_ext(msg: &mut Message) -> Altered {
         if let MessagePayload::Handshake { parsed, encoded } = &mut msg.payload {
             if let HandshakePayload::ClientHello(ch) = &mut parsed.payload {
@@ -137,11 +137,11 @@ fn server_picks_ffdhe_group_when_clienthello_has_no_groups_ext() {
     let (client, server) = make_pair_for_configs(client_config, server_config);
     let (mut client, mut server) = (client.into(), server.into());
     transfer_altered(&mut client, remove_named_groups_ext, &mut server);
-    assert!(server.process_new_packets().is_ok());
+    assert!(server.process_new_packets().await.is_ok());
 }
 
-#[test]
-fn server_avoids_dhe_cipher_suites_when_client_has_no_known_dhe_in_groups_ext() {
+#[tokio::test]
+async fn server_avoids_dhe_cipher_suites_when_client_has_no_known_dhe_in_groups_ext() {
     use rustls::{CipherSuite, NamedGroup};
 
     let client_config = finish_client_config(
@@ -183,7 +183,7 @@ fn server_avoids_dhe_cipher_suites_when_client_has_no_known_dhe_in_groups_ext() 
 
     let (mut client, mut server) = make_pair_for_configs(client_config, server_config);
     transfer(&mut client, &mut server);
-    assert!(server.process_new_packets().is_ok());
+    assert!(server.process_new_packets().await.is_ok());
     assert_eq!(
         server
             .negotiated_cipher_suite()
@@ -193,8 +193,8 @@ fn server_avoids_dhe_cipher_suites_when_client_has_no_known_dhe_in_groups_ext() 
     );
 }
 
-#[test]
-fn server_accepts_client_with_no_ecpoints_extension_and_only_ffdhe_cipher_suites() {
+#[tokio::test]
+async fn server_accepts_client_with_no_ecpoints_extension_and_only_ffdhe_cipher_suites() {
     fn remove_ecpoints_ext(msg: &mut Message) -> Altered {
         if let MessagePayload::Handshake { parsed, encoded } = &mut msg.payload {
             if let HandshakePayload::ClientHello(ch) = &mut parsed.payload {
@@ -222,11 +222,11 @@ fn server_accepts_client_with_no_ecpoints_extension_and_only_ffdhe_cipher_suites
     let (client, server) = make_pair_for_configs(client_config, server_config);
     let (mut client, mut server) = (client.into(), server.into());
     transfer_altered(&mut client, remove_ecpoints_ext, &mut server);
-    assert!(server.process_new_packets().is_ok());
+    assert!(server.process_new_packets().await.is_ok());
 }
 
-#[test]
-fn server_avoids_cipher_suite_with_no_common_kx_groups() {
+#[tokio::test]
+async fn server_avoids_cipher_suite_with_no_common_kx_groups() {
     let server_config = finish_server_config(
         KeyType::Rsa2048,
         rustls::ServerConfig::builder_with_provider(
@@ -327,7 +327,7 @@ fn server_avoids_cipher_suite_with_no_common_kx_groups() {
 
         let (mut client, mut server) = make_pair_for_arc_configs(&client_config, &server_config);
         transfer(&mut client, &mut server);
-        assert!(dbg!(server.process_new_packets()).is_ok());
+        assert!(dbg!(server.process_new_packets().await).is_ok());
         assert_eq!(
             server
                 .negotiated_cipher_suite()

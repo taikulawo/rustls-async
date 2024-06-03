@@ -10,15 +10,14 @@ use pki_types::{
 };
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::client::{ServerCertVerifierBuilder, WebPkiServerVerifier};
-use rustls::crypto::cipher::{InboundOpaqueMessage, MessageDecrypter, MessageEncrypter};
 use rustls::crypto::CryptoProvider;
-use rustls::internal::msgs::codec::{Codec, Reader};
+use rustls::internal::msgs::codec::Reader;
 use rustls::internal::msgs::message::{Message, OutboundOpaqueMessage, PlainMessage};
 use rustls::server::{ClientCertVerifierBuilder, WebPkiClientVerifier};
 use rustls::{
-    ClientConfig, ClientConnection, Connection, ConnectionCommon, ContentType,
-    DigitallySignedStruct, Error, ProtocolVersion, RootCertStore, ServerConfig, ServerConnection,
-    SideData, SignatureScheme, SupportedCipherSuite,
+    ClientConfig, ClientConnection, Connection, ConnectionCommon, DigitallySignedStruct, Error,
+    ProtocolVersion, RootCertStore, ServerConfig, ServerConnection, SideData, SignatureScheme,
+    SupportedCipherSuite,
 };
 use webpki::anchor_from_trusted_cert;
 
@@ -639,16 +638,22 @@ pub fn make_pair_for_arc_configs(
     )
 }
 
-pub fn do_handshake(
+pub async fn do_handshake(
     client: &mut impl DerefMut<Target = ConnectionCommon<impl SideData>>,
     server: &mut impl DerefMut<Target = ConnectionCommon<impl SideData>>,
 ) -> (usize, usize) {
     let (mut to_client, mut to_server) = (0, 0);
     while server.is_handshaking() || client.is_handshaking() {
         to_server += transfer(client, server);
-        server.process_new_packets().unwrap();
+        server
+            .process_new_packets()
+            .await
+            .unwrap();
         to_client += transfer(server, client);
-        client.process_new_packets().unwrap();
+        client
+            .process_new_packets()
+            .await
+            .unwrap();
     }
     (to_server, to_client)
 }
@@ -659,7 +664,7 @@ pub enum ErrorFromPeer {
     Server(Error),
 }
 
-pub fn do_handshake_until_error(
+pub async fn do_handshake_until_error(
     client: &mut ClientConnection,
     server: &mut ServerConnection,
 ) -> Result<(), ErrorFromPeer> {
@@ -667,26 +672,29 @@ pub fn do_handshake_until_error(
         transfer(client, server);
         server
             .process_new_packets()
+            .await
             .map_err(ErrorFromPeer::Server)?;
         transfer(server, client);
         client
             .process_new_packets()
+            .await
             .map_err(ErrorFromPeer::Client)?;
     }
 
     Ok(())
 }
 
-pub fn do_handshake_until_both_error(
+pub async fn do_handshake_until_both_error(
     client: &mut ClientConnection,
     server: &mut ServerConnection,
 ) -> Result<(), Vec<ErrorFromPeer>> {
-    match do_handshake_until_error(client, server) {
+    match do_handshake_until_error(client, server).await {
         Err(server_err @ ErrorFromPeer::Server(_)) => {
             let mut errors = vec![server_err];
             transfer(server, client);
             let client_err = client
                 .process_new_packets()
+                .await
                 .map_err(ErrorFromPeer::Client)
                 .expect_err("client didn't produce error after server error");
             errors.push(client_err);
@@ -698,6 +706,7 @@ pub fn do_handshake_until_both_error(
             transfer(client, server);
             let server_err = server
                 .process_new_packets()
+                .await
                 .map_err(ErrorFromPeer::Server)
                 .expect_err("server didn't produce error after client error");
             errors.push(server_err);
@@ -728,7 +737,7 @@ impl io::Read for FailsReads {
     }
 }
 
-pub fn do_suite_test(
+pub async fn do_suite_test(
     client_config: ClientConfig,
     server_config: ServerConfig,
     expect_suite: SupportedCipherSuite,
@@ -749,7 +758,10 @@ pub fn do_suite_test(
     assert!(server.is_handshaking());
 
     transfer(&mut client, &mut server);
-    server.process_new_packets().unwrap();
+    server
+        .process_new_packets()
+        .await
+        .unwrap();
 
     assert!(client.is_handshaking());
     assert!(server.is_handshaking());
@@ -759,15 +771,24 @@ pub fn do_suite_test(
     assert_eq!(Some(expect_suite), server.negotiated_cipher_suite());
 
     transfer(&mut server, &mut client);
-    client.process_new_packets().unwrap();
+    client
+        .process_new_packets()
+        .await
+        .unwrap();
 
     assert_eq!(Some(expect_suite), client.negotiated_cipher_suite());
     assert_eq!(Some(expect_suite), server.negotiated_cipher_suite());
 
     transfer(&mut client, &mut server);
-    server.process_new_packets().unwrap();
+    server
+        .process_new_packets()
+        .await
+        .unwrap();
     transfer(&mut server, &mut client);
-    client.process_new_packets().unwrap();
+    client
+        .process_new_packets()
+        .await
+        .unwrap();
 
     assert!(!client.is_handshaking());
     assert!(!server.is_handshaking());
@@ -915,128 +936,5 @@ impl Default for MockServerVerifier {
             ],
             expected_ocsp_response: None,
         }
-    }
-}
-
-/// This allows injection/receipt of raw messages into a post-handshake connection.
-///
-/// It consumes one of the peers, extracts its secrets, and then reconstitutes the
-/// message encrypter/decrypter.  It does not do fragmentation/joining.
-pub struct RawTls {
-    encrypter: Box<dyn MessageEncrypter>,
-    enc_seq: u64,
-    decrypter: Box<dyn MessageDecrypter>,
-    dec_seq: u64,
-}
-
-impl RawTls {
-    /// conn must be post-handshake, and must have been created with `enable_secret_extraction`
-    pub fn new_client(conn: ClientConnection) -> Self {
-        let suite = conn.negotiated_cipher_suite().unwrap();
-        Self::new(
-            suite,
-            conn.dangerous_extract_secrets()
-                .unwrap(),
-        )
-    }
-
-    /// conn must be post-handshake, and must have been created with `enable_secret_extraction`
-    pub fn new_server(conn: ServerConnection) -> Self {
-        let suite = conn.negotiated_cipher_suite().unwrap();
-        Self::new(
-            suite,
-            conn.dangerous_extract_secrets()
-                .unwrap(),
-        )
-    }
-
-    fn new(suite: SupportedCipherSuite, secrets: rustls::ExtractedSecrets) -> Self {
-        let rustls::ExtractedSecrets {
-            tx: (tx_seq, tx_keys),
-            rx: (rx_seq, rx_keys),
-        } = secrets;
-
-        let encrypter = match (tx_keys, suite) {
-            (
-                rustls::ConnectionTrafficSecrets::Aes256Gcm { key, iv },
-                SupportedCipherSuite::Tls13(tls13),
-            ) => tls13.aead_alg.encrypter(key, iv),
-
-            (
-                rustls::ConnectionTrafficSecrets::Aes256Gcm { key, iv },
-                SupportedCipherSuite::Tls12(tls12),
-            ) => tls12
-                .aead_alg
-                .encrypter(key, &iv.as_ref()[..4], &iv.as_ref()[4..]),
-
-            _ => todo!(),
-        };
-
-        let decrypter = match (rx_keys, suite) {
-            (
-                rustls::ConnectionTrafficSecrets::Aes256Gcm { key, iv },
-                SupportedCipherSuite::Tls13(tls13),
-            ) => tls13.aead_alg.decrypter(key, iv),
-
-            (
-                rustls::ConnectionTrafficSecrets::Aes256Gcm { key, iv },
-                SupportedCipherSuite::Tls12(tls12),
-            ) => tls12
-                .aead_alg
-                .decrypter(key, &iv.as_ref()[..4]),
-
-            _ => todo!(),
-        };
-
-        Self {
-            encrypter,
-            enc_seq: tx_seq,
-            decrypter,
-            dec_seq: rx_seq,
-        }
-    }
-
-    pub fn encrypt_and_send(
-        &mut self,
-        msg: &PlainMessage,
-        peer: &mut impl DerefMut<Target = ConnectionCommon<impl SideData>>,
-    ) {
-        let data = self
-            .encrypter
-            .encrypt(msg.borrow_outbound(), self.enc_seq)
-            .unwrap()
-            .encode();
-        self.enc_seq += 1;
-        peer.read_tls(&mut io::Cursor::new(data))
-            .unwrap();
-    }
-
-    pub fn receive_and_decrypt(
-        &mut self,
-        peer: &mut impl DerefMut<Target = ConnectionCommon<impl SideData>>,
-        f: impl Fn(Message),
-    ) {
-        let mut data = vec![];
-        peer.write_tls(&mut io::Cursor::new(&mut data))
-            .unwrap();
-
-        let mut reader = Reader::init(&data);
-        let content_type = ContentType::read(&mut reader).unwrap();
-        let version = ProtocolVersion::read(&mut reader).unwrap();
-        let len = u16::read(&mut reader).unwrap();
-        let left = &mut data[5..];
-        assert_eq!(len as usize, left.len());
-
-        let inbound = InboundOpaqueMessage::new(content_type, version, left);
-        let plain = self
-            .decrypter
-            .decrypt(inbound, self.dec_seq)
-            .unwrap();
-        self.dec_seq += 1;
-
-        let msg = Message::try_from(plain).unwrap();
-        println!("receive_and_decrypt: {msg:?}");
-
-        f(msg);
     }
 }

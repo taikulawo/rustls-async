@@ -13,8 +13,8 @@ use rustls::unbuffered::{
 };
 use rustls::version::TLS13;
 use rustls::{ClientConfig, RootCertStore};
-
-fn main() -> Result<(), Box<dyn Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
     let root_store = RootCertStore {
         roots: webpki_roots::TLS_SERVER_ROOTS.into(),
     };
@@ -29,16 +29,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut incoming_tls = [0; INCOMING_TLS_BUFSIZE];
     let mut outgoing_tls = vec![0; OUTGOING_TLS_INITIAL_BUFSIZE];
 
-    converse(&config, false, &mut incoming_tls, &mut outgoing_tls)?;
+    converse(&config, false, &mut incoming_tls, &mut outgoing_tls).await?;
     if SEND_EARLY_DATA {
         eprintln!("---- second connection ----");
-        converse(&config, true, &mut incoming_tls, &mut outgoing_tls)?;
+        converse(&config, true, &mut incoming_tls, &mut outgoing_tls).await?;
     }
 
     Ok(())
 }
 
-fn converse(
+async fn converse(
     config: &Arc<ClientConfig>,
     send_early_data: bool,
     incoming_tls: &mut [u8],
@@ -58,7 +58,7 @@ fn converse(
     let mut iter_count = 0;
     while open_connection {
         let UnbufferedStatus { mut discard, state } =
-            conn.process_tls_records(&mut incoming_tls[..incoming_used]);
+            conn.process_tls_records(&mut incoming_tls[..incoming_used]).await;
 
         match dbg!(state.unwrap()) {
             ConnectionState::ReadTraffic(mut state) => {

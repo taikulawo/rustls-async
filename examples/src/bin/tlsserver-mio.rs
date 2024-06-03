@@ -19,6 +19,7 @@
 //!
 //! [mio]: https://docs.rs/mio/latest/mio/
 
+use core::str;
 use std::collections::HashMap;
 use std::io::{self, BufReader, Read, Write};
 use std::sync::Arc;
@@ -101,14 +102,15 @@ impl TlsServer {
         }
     }
 
-    fn conn_event(&mut self, registry: &mio::Registry, event: &mio::event::Event) {
+    async fn conn_event(&mut self, registry: &mio::Registry, event: &mio::event::Event) {
         let token = event.token();
 
         if self.connections.contains_key(&token) {
             self.connections
                 .get_mut(&token)
                 .unwrap()
-                .ready(registry, event);
+                .ready(registry, event)
+                .await;
 
             if self.connections[&token].is_closed() {
                 self.connections.remove(&token);
@@ -181,13 +183,13 @@ impl OpenConnection {
     }
 
     /// We're a connection, and we have something to do.
-    fn ready(&mut self, registry: &mio::Registry, ev: &mio::event::Event) {
+    async fn ready(&mut self, registry: &mio::Registry, ev: &mio::event::Event) {
         // If we're readable: read some TLS.  Then
         // see if that yielded new plaintext.  Then
         // see if the backend is readable too.
         if ev.is_readable() {
-            self.do_tls_read();
-            self.try_plain_read();
+            self.do_tls_read().await;
+            self.try_plain_read().await;
             self.try_back_read();
         }
 
@@ -217,7 +219,7 @@ impl OpenConnection {
         self.back = None;
     }
 
-    fn do_tls_read(&mut self) {
+    async fn do_tls_read(&mut self) {
         // Read some TLS data.
         match self.tls_conn.read_tls(&mut self.socket) {
             Err(err) => {
@@ -236,9 +238,48 @@ impl OpenConnection {
             }
             Ok(_) => {}
         };
-
         // Process newly-received TLS messages.
-        if let Err(err) = self.tls_conn.process_new_packets() {
+        if let Err(err) = self
+            .tls_conn
+            .process_new_packets()
+            .await
+        {
+            error!("cannot process packet: {:?}", err);
+
+            // last gasp write to send any alerts
+            self.do_tls_write_and_handle_error();
+
+            self.closing = true;
+        }
+        if let Err(err) = self
+            .tls_conn
+            .process_new_packets()
+            .await
+        {
+            error!("cannot process packet: {:?}", err);
+
+            // last gasp write to send any alerts
+            self.do_tls_write_and_handle_error();
+
+            self.closing = true;
+        }
+        if let Err(err) = self
+            .tls_conn
+            .process_new_packets()
+            .await
+        {
+            error!("cannot process packet: {:?}", err);
+
+            // last gasp write to send any alerts
+            self.do_tls_write_and_handle_error();
+
+            self.closing = true;
+        }
+        if let Err(err) = self
+            .tls_conn
+            .process_new_packets()
+            .await
+        {
             error!("cannot process packet: {:?}", err);
 
             // last gasp write to send any alerts
@@ -248,9 +289,13 @@ impl OpenConnection {
         }
     }
 
-    fn try_plain_read(&mut self) {
+    async fn try_plain_read(&mut self) {
         // Read and process all available plaintext.
-        if let Ok(io_state) = self.tls_conn.process_new_packets() {
+        if let Ok(io_state) = self
+            .tls_conn
+            .process_new_packets()
+            .await
+        {
             if io_state.plaintext_bytes_to_read() > 0 {
                 let mut buf = vec![0u8; io_state.plaintext_bytes_to_read()];
 
@@ -259,7 +304,7 @@ impl OpenConnection {
                     .read_exact(&mut buf)
                     .unwrap();
 
-                debug!("plaintext read {:?}", buf.len());
+                debug!("plaintext read {:?}", String::from_utf8(buf.clone()));
                 self.incoming_plaintext(&buf);
             }
         }
@@ -311,6 +356,7 @@ impl OpenConnection {
             }
             ServerMode::Http => {
                 self.send_http_response_once();
+                self.socket.shutdown(net::Shutdown::Both).unwrap();
             }
             ServerMode::Forward(_) => {
                 self.back
@@ -323,13 +369,15 @@ impl OpenConnection {
     }
 
     fn send_http_response_once(&mut self) {
-        let response =
-            b"HTTP/1.0 200 OK\r\nConnection: close\r\n\r\nHello world from rustls tlsserver\r\n";
+        let response = b"HTTP/1.0 200 OK\r\nConnection: close\r\n\r\nHello world from rustls tlsserver\r\n";
         if !self.sent_http_response {
             self.tls_conn
                 .writer()
                 .write_all(response)
                 .unwrap();
+            self.tls_conn
+                .writer()
+                .flush().unwrap();
             self.sent_http_response = true;
             self.tls_conn.send_close_notify();
         }
@@ -656,8 +704,8 @@ fn make_config(args: &Args) -> Arc<rustls::ServerConfig> {
 
     Arc::new(config)
 }
-
-fn main() {
+#[tokio::main]
+async fn main() {
     let version = env!("CARGO_PKG_NAME").to_string() + ", version: " + env!("CARGO_PKG_VERSION");
 
     let args: Args = Docopt::new(USAGE)
@@ -717,7 +765,11 @@ fn main() {
                         .accept(poll.registry())
                         .expect("error accepting socket");
                 }
-                _ => tlsserv.conn_event(poll.registry(), event),
+                _ => {
+                    tlsserv
+                        .conn_event(poll.registry(), event)
+                        .await
+                }
             }
         }
     }

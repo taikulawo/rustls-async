@@ -48,9 +48,9 @@ fn server_config_with_verifier(
         .unwrap()
 }
 
-#[test]
+#[tokio::test]
 // Happy path, we resolve to a root, it is verified OK, should be able to connect
-fn client_verifier_works() {
+async fn client_verifier_works() {
     for kt in ALL_KEY_TYPES.iter() {
         let client_verifier = MockClientVerifier::new(ver_ok, *kt);
         let server_config = server_config_with_verifier(*kt, client_verifier);
@@ -60,15 +60,15 @@ fn client_verifier_works() {
             let client_config = make_client_config_with_versions_with_auth(*kt, &[version]);
             let (mut client, mut server) =
                 make_pair_for_arc_configs(&Arc::new(client_config.clone()), &server_config);
-            let err = do_handshake_until_error(&mut client, &mut server);
+            let err = do_handshake_until_error(&mut client, &mut server).await;
             assert_eq!(err, Ok(()));
         }
     }
 }
 
 // Server offers no verification schemes
-#[test]
-fn client_verifier_no_schemes() {
+#[tokio::test]
+async fn client_verifier_no_schemes() {
     for kt in ALL_KEY_TYPES.iter() {
         let mut client_verifier = MockClientVerifier::new(ver_ok, *kt);
         client_verifier.offered_schemes = Some(vec![]);
@@ -79,7 +79,7 @@ fn client_verifier_no_schemes() {
             let client_config = make_client_config_with_versions_with_auth(*kt, &[version]);
             let (mut client, mut server) =
                 make_pair_for_arc_configs(&Arc::new(client_config.clone()), &server_config);
-            let err = do_handshake_until_error(&mut client, &mut server);
+            let err = do_handshake_until_error(&mut client, &mut server).await;
             assert_eq!(
                 err,
                 Err(ErrorFromPeer::Client(Error::InvalidMessage(
@@ -91,8 +91,8 @@ fn client_verifier_no_schemes() {
 }
 
 // If we do have a root, we must do auth
-#[test]
-fn client_verifier_no_auth_yes_root() {
+#[tokio::test]
+async fn client_verifier_no_auth_yes_root() {
     for kt in ALL_KEY_TYPES.iter() {
         let client_verifier = MockClientVerifier::new(ver_unreachable, *kt);
         let server_config = server_config_with_verifier(*kt, client_verifier);
@@ -103,7 +103,7 @@ fn client_verifier_no_auth_yes_root() {
             let mut server = ServerConnection::new(Arc::clone(&server_config)).unwrap();
             let mut client =
                 ClientConnection::new(Arc::new(client_config), server_name("localhost")).unwrap();
-            let errs = do_handshake_until_both_error(&mut client, &mut server);
+            let errs = do_handshake_until_both_error(&mut client, &mut server).await;
             assert_eq!(
                 errs,
                 Err(vec![
@@ -117,9 +117,9 @@ fn client_verifier_no_auth_yes_root() {
     }
 }
 
-#[test]
+#[tokio::test]
 // Triple checks we propagate the rustls::Error through
-fn client_verifier_fails_properly() {
+async fn client_verifier_fails_properly() {
     for kt in ALL_KEY_TYPES.iter() {
         let client_verifier = MockClientVerifier::new(ver_err, *kt);
         let server_config = server_config_with_verifier(*kt, client_verifier);
@@ -130,7 +130,7 @@ fn client_verifier_fails_properly() {
             let mut server = ServerConnection::new(Arc::clone(&server_config)).unwrap();
             let mut client =
                 ClientConnection::new(Arc::new(client_config), server_name("localhost")).unwrap();
-            let err = do_handshake_until_error(&mut client, &mut server);
+            let err = do_handshake_until_error(&mut client, &mut server).await;
             assert_eq!(
                 err,
                 Err(ErrorFromPeer::Server(Error::General("test err".into())))

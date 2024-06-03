@@ -18,7 +18,8 @@ use rustls::unbuffered::{
 use rustls::ServerConfig;
 use rustls_pemfile::Item;
 
-fn main() -> Result<(), Box<dyn Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
     let mut args = env::args();
     args.next();
     let cert_file = args
@@ -45,13 +46,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut incoming_tls = [0; INCOMING_TLS_BUFSIZE];
     let mut outgoing_tls = vec![0; OUTGOING_TLS_INITIAL_BUFSIZE];
     for stream in listener.incoming() {
-        handle(stream?, &config, &mut incoming_tls, &mut outgoing_tls)?;
+        handle(stream?, &config, &mut incoming_tls, &mut outgoing_tls).await?;
     }
 
     Ok(())
 }
 
-fn handle(
+async fn handle(
     mut sock: TcpStream,
     config: &Arc<ServerConfig>,
     incoming_tls: &mut [u8],
@@ -73,7 +74,7 @@ fn handle(
     let mut iter_count = 0;
     while open_connection {
         let UnbufferedStatus { mut discard, state } =
-            conn.process_tls_records(&mut incoming_tls[..incoming_used]);
+            conn.process_tls_records(&mut incoming_tls[..incoming_used]).await;
 
         match dbg!(state.unwrap()) {
             ConnectionState::ReadTraffic(mut state) => {

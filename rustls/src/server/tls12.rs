@@ -4,6 +4,7 @@ use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
 
+use async_trait::async_trait;
 pub(super) use client_hello::CompleteClientHelloHandling;
 use pki_types::UnixTime;
 use subtle::ConstantTimeEq;
@@ -60,11 +61,11 @@ mod client_hello {
     }
 
     impl CompleteClientHelloHandling {
-        pub(in crate::server) fn handle_client_hello(
+        pub(in crate::server) async fn handle_client_hello(
             mut self,
             cx: &mut ServerContext<'_>,
-            server_key: ActiveCertifiedKey,
-            chm: &Message,
+            server_key: ActiveCertifiedKey<'_>,
+            chm: &Message<'_>,
             client_hello: &ClientHelloPayload,
             selected_kxg: &'static dyn SupportedKxGroup,
             sigschemes_ext: Vec<SignatureScheme>,
@@ -210,6 +211,7 @@ mod client_hello {
             if let Some(ocsp_response) = ocsp_response {
                 emit_cert_status(&mut self.transcript, cx.common, ocsp_response);
             }
+            // emit server key exchange
             let server_kx = emit_server_kx(
                 &mut self.transcript,
                 cx.common,
@@ -217,7 +219,7 @@ mod client_hello {
                 selected_kxg,
                 server_key.get_key(),
                 &self.randoms,
-            )?;
+            ).await?;
             let doing_client_auth = emit_certificate_req(&self.config, &mut self.transcript, cx)?;
             emit_server_hello_done(&mut self.transcript, cx.common);
 
@@ -391,7 +393,7 @@ mod client_hello {
         common.send_msg(c, false);
     }
 
-    fn emit_server_kx(
+    async fn emit_server_kx(
         transcript: &mut HandshakeHash,
         common: &mut CommonState,
         sigschemes: Vec<SignatureScheme>,
@@ -411,7 +413,8 @@ mod client_hello {
             .choose_scheme(&sigschemes)
             .ok_or_else(|| Error::General("incompatible signing key".to_string()))?;
         let sigscheme = signer.scheme();
-        let sig = signer.sign(&msg)?;
+        // keyless
+        let sig = signer.sign(&msg).await?;
 
         let skx = ServerKeyExchangePayload::from(ServerKeyExchange {
             params: kx_params,
@@ -498,8 +501,9 @@ struct ExpectCertificate {
     send_ticket: bool,
 }
 
+#[async_trait(?Send)] 
 impl State<ServerConnectionData> for ExpectCertificate {
-    fn handle<'m>(
+    async fn handle<'m>(
         mut self: Box<Self>,
         cx: &mut ServerContext<'_>,
         m: Message<'m>,
@@ -580,8 +584,9 @@ struct ExpectClientKx<'a> {
     send_ticket: bool,
 }
 
+#[async_trait(?Send)] 
 impl State<ServerConnectionData> for ExpectClientKx<'_> {
-    fn handle<'m>(
+    async fn handle<'m>(
         mut self: Box<Self>,
         cx: &mut ServerContext<'_>,
         m: Message<'m>,
@@ -589,6 +594,7 @@ impl State<ServerConnectionData> for ExpectClientKx<'_> {
     where
         Self: 'm,
     {
+        // 从ClientExchange阶段解出payload，是client的public key
         let client_kx = require_handshake_msg!(
             m,
             HandshakeType::ClientKeyExchange,
@@ -673,8 +679,9 @@ struct ExpectCertificateVerify<'a> {
     send_ticket: bool,
 }
 
+#[async_trait(?Send)] 
 impl State<ServerConnectionData> for ExpectCertificateVerify<'_> {
-    fn handle<'m>(
+    async fn handle<'m>(
         mut self: Box<Self>,
         cx: &mut ServerContext<'_>,
         m: Message<'m>,
@@ -755,8 +762,9 @@ struct ExpectCcs {
     send_ticket: bool,
 }
 
+#[async_trait(?Send)] 
 impl State<ServerConnectionData> for ExpectCcs {
-    fn handle<'m>(
+    async fn handle<'m>(
         self: Box<Self>,
         cx: &mut ServerContext<'_>,
         m: Message<'m>,
@@ -898,8 +906,9 @@ struct ExpectFinished {
     send_ticket: bool,
 }
 
+#[async_trait(?Send)] 
 impl State<ServerConnectionData> for ExpectFinished {
-    fn handle<'m>(
+    async fn handle<'m>(
         mut self: Box<Self>,
         cx: &mut ServerContext<'_>,
         m: Message<'m>,
@@ -984,8 +993,9 @@ struct ExpectTraffic {
 
 impl ExpectTraffic {}
 
+#[async_trait(?Send)] 
 impl State<ServerConnectionData> for ExpectTraffic {
-    fn handle<'m>(
+    async fn handle<'m>(
         self: Box<Self>,
         cx: &mut ServerContext<'_>,
         m: Message<'m>,

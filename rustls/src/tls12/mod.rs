@@ -253,7 +253,8 @@ impl ConnectionSecrets {
             (context.len() as u16).encode(&mut randoms);
             randoms.extend_from_slice(context);
         }
-
+        // 生成master secret
+        // output = prf(premaster secret, clienthello.random, serverhello.random,label "master secret")
         self.suite
             .prf_provider
             .for_secret(output, &self.master_secret, label, &randoms);

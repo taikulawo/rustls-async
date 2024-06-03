@@ -4,6 +4,7 @@ use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
 
+use async_trait::async_trait;
 use pki_types::ServerName;
 pub(super) use server_hello::CompleteServerHelloHandling;
 use subtle::ConstantTimeEq;
@@ -203,8 +204,9 @@ struct ExpectCertificate {
     must_issue_new_ticket: bool,
 }
 
+#[async_trait(?Send)]
 impl State<ClientConnectionData> for ExpectCertificate {
-    fn handle<'m>(
+    async fn handle<'m>(
         mut self: Box<Self>,
         _cx: &mut ClientContext<'_>,
         m: Message<'m>,
@@ -267,9 +269,9 @@ struct ExpectCertificateStatusOrServerKx<'m> {
     server_cert_chain: CertificateChain<'m>,
     must_issue_new_ticket: bool,
 }
-
+#[async_trait(?Send)] 
 impl State<ClientConnectionData> for ExpectCertificateStatusOrServerKx<'_> {
-    fn handle<'m>(
+    async fn handle<'m>(
         self: Box<Self>,
         cx: &mut ClientContext<'_>,
         m: Message<'m>,
@@ -297,7 +299,7 @@ impl State<ClientConnectionData> for ExpectCertificateStatusOrServerKx<'_> {
                 server_cert: ServerCertDetails::new(self.server_cert_chain, vec![]),
                 must_issue_new_ticket: self.must_issue_new_ticket,
             })
-            .handle(cx, m),
+            .handle(cx, m).await,
             MessagePayload::Handshake {
                 parsed:
                     HandshakeMessagePayload {
@@ -317,7 +319,7 @@ impl State<ClientConnectionData> for ExpectCertificateStatusOrServerKx<'_> {
                 server_cert_chain: self.server_cert_chain,
                 must_issue_new_ticket: self.must_issue_new_ticket,
             })
-            .handle(cx, m),
+            .handle(cx, m).await,
             payload => Err(inappropriate_handshake_message(
                 &payload,
                 &[ContentType::Handshake],
@@ -357,9 +359,9 @@ struct ExpectCertificateStatus<'a> {
     server_cert_chain: CertificateChain<'a>,
     must_issue_new_ticket: bool,
 }
-
+#[async_trait(?Send)] 
 impl State<ClientConnectionData> for ExpectCertificateStatus<'_> {
-    fn handle<'m>(
+    async fn handle<'m>(
         mut self: Box<Self>,
         _cx: &mut ClientContext<'_>,
         m: Message<'m>,
@@ -424,9 +426,9 @@ struct ExpectServerKx<'a> {
     server_cert: ServerCertDetails<'a>,
     must_issue_new_ticket: bool,
 }
-
+#[async_trait(?Send)] 
 impl State<ClientConnectionData> for ExpectServerKx<'_> {
-    fn handle<'m>(
+    async fn handle<'m>(
         mut self: Box<Self>,
         cx: &mut ClientContext<'_>,
         m: Message<'m>,
@@ -545,7 +547,7 @@ fn emit_client_kx(
     common.send_msg(ckx, false);
 }
 
-fn emit_certverify(
+async fn emit_certverify(
     transcript: &mut HandshakeHash,
     signer: &dyn Signer,
     common: &mut CommonState,
@@ -555,7 +557,7 @@ fn emit_certverify(
         .ok_or_else(|| Error::General("Expected transcript".to_owned()))?;
 
     let scheme = signer.scheme();
-    let sig = signer.sign(&message)?;
+    let sig = signer.sign(&message).await?;
     let body = DigitallySignedStruct::new(scheme, sig);
 
     let m = Message {
@@ -631,9 +633,9 @@ struct ExpectServerDoneOrCertReq<'a> {
     server_kx: ServerKxDetails,
     must_issue_new_ticket: bool,
 }
-
+#[async_trait(?Send)] 
 impl State<ClientConnectionData> for ExpectServerDoneOrCertReq<'_> {
-    fn handle<'m>(
+    async fn handle<'m>(
         mut self: Box<Self>,
         cx: &mut ClientContext<'_>,
         m: Message<'m>,
@@ -664,7 +666,7 @@ impl State<ClientConnectionData> for ExpectServerDoneOrCertReq<'_> {
                 server_kx: self.server_kx,
                 must_issue_new_ticket: self.must_issue_new_ticket,
             })
-            .handle(cx, m)
+            .handle(cx, m).await
         } else {
             self.transcript.abandon_client_auth();
 
@@ -682,7 +684,7 @@ impl State<ClientConnectionData> for ExpectServerDoneOrCertReq<'_> {
                 client_auth: None,
                 must_issue_new_ticket: self.must_issue_new_ticket,
             })
-            .handle(cx, m)
+            .handle(cx, m).await
         }
     }
 
@@ -716,9 +718,9 @@ struct ExpectCertificateRequest<'a> {
     server_kx: ServerKxDetails,
     must_issue_new_ticket: bool,
 }
-
+#[async_trait(?Send)] 
 impl State<ClientConnectionData> for ExpectCertificateRequest<'_> {
-    fn handle<'m>(
+    async fn handle<'m>(
         mut self: Box<Self>,
         _cx: &mut ClientContext<'_>,
         m: Message<'m>,
@@ -799,9 +801,9 @@ struct ExpectServerDone<'a> {
     client_auth: Option<ClientAuthDetails>,
     must_issue_new_ticket: bool,
 }
-
+#[async_trait(?Send)] 
 impl State<ClientConnectionData> for ExpectServerDone<'_> {
-    fn handle<'m>(
+    async fn handle<'m>(
         self: Box<Self>,
         cx: &mut ClientContext<'_>,
         m: Message<'m>,
@@ -941,7 +943,7 @@ impl State<ClientConnectionData> for ExpectServerDone<'_> {
 
         // 5c.
         if let Some(ClientAuthDetails::Verify { signer, .. }) = &st.client_auth {
-            emit_certverify(&mut transcript, signer.as_ref(), cx.common)?;
+            emit_certverify(&mut transcript, signer.as_ref(), cx.common).await?;
         }
 
         // 5d.
@@ -1030,9 +1032,9 @@ struct ExpectNewTicket {
     cert_verified: verify::ServerCertVerified,
     sig_verified: verify::HandshakeSignatureValid,
 }
-
+#[async_trait(?Send)] 
 impl State<ClientConnectionData> for ExpectNewTicket {
-    fn handle<'m>(
+    async fn handle<'m>(
         mut self: Box<Self>,
         _cx: &mut ClientContext<'_>,
         m: Message<'m>,
@@ -1083,8 +1085,9 @@ struct ExpectCcs {
     sig_verified: verify::HandshakeSignatureValid,
 }
 
+#[async_trait(?Send)] 
 impl State<ClientConnectionData> for ExpectCcs {
-    fn handle<'m>(
+    async fn handle<'m>(
         self: Box<Self>,
         cx: &mut ClientContext<'_>,
         m: Message<'m>,
@@ -1193,9 +1196,9 @@ impl ExpectFinished {
             .set_tls12_session(self.server_name.clone(), session_value);
     }
 }
-
+#[async_trait(?Send)] 
 impl State<ClientConnectionData> for ExpectFinished {
-    fn handle<'m>(
+    async fn handle<'m>(
         self: Box<Self>,
         cx: &mut ClientContext<'_>,
         m: Message<'m>,
@@ -1273,8 +1276,9 @@ struct ExpectTraffic {
     _fin_verified: verify::FinishedMessageVerified,
 }
 
+#[async_trait(?Send)] 
 impl State<ClientConnectionData> for ExpectTraffic {
-    fn handle<'m>(
+    async fn handle<'m>(
         self: Box<Self>,
         cx: &mut ClientContext<'_>,
         m: Message<'m>,

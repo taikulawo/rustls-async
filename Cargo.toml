@@ -12,15 +12,12 @@ members = [
   "provider-example",
   # the main library and tests
   "rustls",
-  # experimental post-quantum algorithm support
-  "rustls-post-quantum",
   # rustls cryptography provider integration tests
   "rustls-provider-test",
 ]
 default-members = [
   "examples",
   "rustls",
-  "rustls-post-quantum",
 ]
 exclude = ["admin/rustfmt"]
 resolver = "2"

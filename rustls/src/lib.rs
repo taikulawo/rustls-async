@@ -398,8 +398,6 @@ mod hash_hs;
 mod limited_cache;
 mod rand;
 mod record_layer;
-#[cfg(feature = "std")]
-mod stream;
 #[cfg(feature = "tls12")]
 mod tls12;
 mod tls13;
@@ -524,7 +522,6 @@ pub use crate::msgs::enums::NamedGroup;
 pub use crate::msgs::ffdhe_groups;
 pub use crate::msgs::handshake::DistinguishedName;
 #[cfg(feature = "std")]
-pub use crate::stream::{Stream, StreamOwned};
 pub use crate::suites::{
     CipherSuiteCommon, ConnectionTrafficSecrets, ExtractedSecrets, SupportedCipherSuite,
 };

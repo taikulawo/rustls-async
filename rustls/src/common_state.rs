@@ -1,6 +1,7 @@
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 
+use async_trait::async_trait;
 use pki_types::CertificateDer;
 
 use crate::enums::{AlertDescription, ContentType, HandshakeType, ProtocolVersion};
@@ -158,9 +159,9 @@ impl CommonState {
         matches!(self.negotiated_version, Some(ProtocolVersion::TLSv1_3))
     }
 
-    pub(crate) fn process_main_protocol<Data>(
+    pub(crate) async fn process_main_protocol<Data>(
         &mut self,
-        msg: Message,
+        msg: Message<'_>,
         mut state: Box<dyn State<Data>>,
         data: &mut Data,
         sendable_plaintext: Option<&mut ChunkVecBuffer>,
@@ -185,7 +186,7 @@ impl CommonState {
             data,
             sendable_plaintext,
         };
-        match state.handle(&mut cx, msg) {
+        match state.handle(&mut cx, msg).await {
             Ok(next) => {
                 state = next.into_owned();
                 Ok(state)
@@ -771,9 +772,9 @@ impl IoState {
         self.peer_has_closed
     }
 }
-
+#[async_trait(?Send)] 
 pub(crate) trait State<Data>: Send + Sync {
-    fn handle<'m>(
+    async fn handle<'m>(
         self: Box<Self>,
         cx: &mut Context<'_, Data>,
         message: Message<'m>,

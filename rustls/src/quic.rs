@@ -67,10 +67,10 @@ mod connection {
         /// Consume unencrypted TLS handshake data.
         ///
         /// Handshake data obtained from separate encryption levels should be supplied in separate calls.
-        pub fn read_hs(&mut self, plaintext: &[u8]) -> Result<(), Error> {
+        pub async fn read_hs(&mut self, plaintext: &[u8]) -> Result<(), Error> {
             match self {
-                Self::Client(conn) => conn.read_hs(plaintext),
-                Self::Server(conn) => conn.read_hs(plaintext),
+                Self::Client(conn) => conn.read_hs(plaintext).await,
+                Self::Server(conn) => conn.read_hs(plaintext).await,
             }
         }
 
@@ -370,14 +370,14 @@ mod connection {
         /// Consume unencrypted TLS handshake data.
         ///
         /// Handshake data obtained from separate encryption levels should be supplied in separate calls.
-        pub fn read_hs(&mut self, plaintext: &[u8]) -> Result<(), Error> {
+        pub async fn read_hs(&mut self, plaintext: &[u8]) -> Result<(), Error> {
             self.core.message_deframer.push(
                 ProtocolVersion::TLSv1_3,
                 plaintext,
                 &mut self.deframer_buffer,
             )?;
             self.core
-                .process_new_packets(&mut self.deframer_buffer, &mut self.sendable_plaintext)?;
+                .process_new_packets(&mut self.deframer_buffer, &mut self.sendable_plaintext).await?;
             Ok(())
         }
 

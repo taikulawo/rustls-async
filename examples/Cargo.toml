@@ -19,5 +19,5 @@ rustls = { path = "../rustls", features = [ "logging" ]}
 rustls-pemfile = "2"
 serde = "1.0"
 serde_derive = "1.0"
-tokio = { version = "1.34.0", features = ["io-util", "macros", "net", "rt"]}
+tokio = { version = "1.34.0", features = ["io-util", "macros", "net", "rt","rt-multi-thread"]}
 webpki-roots = "0.26"

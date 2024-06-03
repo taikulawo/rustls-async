@@ -57,11 +57,11 @@ impl TlsClient {
     }
 
     /// Handles events sent to the TlsClient by mio::Poll
-    fn ready(&mut self, ev: &mio::event::Event) {
+    async fn ready(&mut self, ev: &mio::event::Event) {
         assert_eq!(ev.token(), CLIENT);
 
         if ev.is_readable() {
-            self.do_read();
+            self.do_read().await;
         }
 
         if ev.is_writable() {
@@ -85,7 +85,7 @@ impl TlsClient {
     }
 
     /// We're ready to do a read.
-    fn do_read(&mut self) {
+    async fn do_read(&mut self) {
         // Read TLS data.  This fails if the underlying TCP connection
         // is broken.
         match self.tls_conn.read_tls(&mut self.socket) {
@@ -112,7 +112,7 @@ impl TlsClient {
         // Reading some TLS data might have yielded new TLS
         // messages to process.  Errors from this indicate
         // TLS protocol problems and are fatal.
-        let io_state = match self.tls_conn.process_new_packets() {
+        let io_state = match self.tls_conn.process_new_packets().await {
             Ok(io_state) => io_state,
             Err(err) => {
                 println!("TLS error: {:?}", err);
@@ -482,7 +482,8 @@ fn make_config(args: &Args) -> Arc<rustls::ClientConfig> {
 
 /// Parse some arguments, then make a TLS client connection
 /// somewhere.
-fn main() {
+#[tokio::main]
+async fn main() {
     let version = env!("CARGO_PKG_NAME").to_string() + ", version: " + env!("CARGO_PKG_VERSION");
 
     let args: Args = Docopt::new(USAGE)
@@ -543,7 +544,7 @@ fn main() {
         }
 
         for ev in events.iter() {
-            tlsclient.ready(ev);
+            tlsclient.ready(ev).await;
             tlsclient.reregister(poll.registry());
         }
     }

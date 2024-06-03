@@ -1,7 +1,7 @@
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
-
+use async_trait::async_trait;
 use pkcs8::DecodePrivateKey;
 use rustls::pki_types::PrivateKeyDer;
 use rustls::sign::{Signer, SigningKey};
@@ -43,9 +43,9 @@ impl SigningKey for EcdsaSigningKeyP256 {
         SignatureAlgorithm::ECDSA
     }
 }
-
+#[async_trait]
 impl Signer for EcdsaSigningKeyP256 {
-    fn sign(&self, message: &[u8]) -> Result<Vec<u8>, rustls::Error> {
+    async fn sign(&self, message: &[u8]) -> Result<Vec<u8>, rustls::Error> {
         self.key
             .try_sign_with_rng(&mut rand_core::OsRng, message)
             .map_err(|_| rustls::Error::General("signing failed".into()))

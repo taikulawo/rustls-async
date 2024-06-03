@@ -18,8 +18,8 @@ use rustls::pki_types::{CertificateRevocationListDer, PrivatePkcs8KeyDer};
 use rustls::server::{Acceptor, ClientHello, ServerConfig, WebPkiClientVerifier};
 use rustls::RootCertStore;
 use serde_derive::Deserialize;
-
-fn main() {
+#[tokio::main]
+async fn main() {
     let version = concat!(
         env!("CARGO_PKG_NAME"),
         ", version: ",
@@ -124,7 +124,7 @@ fn main() {
         // Generate a server config for the accepted connection, optionally customizing the
         // configuration based on the client hello.
         let config = test_pki.server_config(&crl_path, accepted.client_hello());
-        let mut conn = match accepted.into_connection(config) {
+        let mut conn = match accepted.into_connection(config).await {
             Ok(conn) => conn,
             Err((e, mut alert)) => {
                 alert.write_all(&mut stream).unwrap();

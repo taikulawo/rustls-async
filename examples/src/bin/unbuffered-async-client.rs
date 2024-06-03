@@ -59,8 +59,9 @@ async fn converse(
 
     let mut iter_count = 0;
     while open_connection {
-        let UnbufferedStatus { mut discard, state } =
-            conn.process_tls_records(&mut incoming_tls[..incoming_used]);
+        let UnbufferedStatus { mut discard, state } = conn
+            .process_tls_records(&mut incoming_tls[..incoming_used])
+            .await;
 
         match dbg!(state.unwrap()) {
             ConnectionState::ReadTraffic(mut state) => {

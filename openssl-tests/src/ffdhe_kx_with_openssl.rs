@@ -10,21 +10,27 @@ use rustls::version::{TLS12, TLS13};
 use rustls::{ClientConfig, RootCertStore, ServerConfig, SupportedProtocolVersion};
 use rustls_pemfile::Item;
 use rustls_pki_types::{CertificateDer, PrivateKeyDer};
+use tokio::task::LocalSet;
 
 use crate::ffdhe::{self, FfdheKxGroup};
 use crate::utils::verify_openssl3_available;
 
-#[test]
-fn rustls_server_with_ffdhe_kx_tls13() {
-    test_rustls_server_with_ffdhe_kx(&TLS13, 1)
+#[tokio::test]
+async fn rustls_server_with_ffdhe_kx_tls13() {
+    test_rustls_server_with_ffdhe_kx(&TLS13, 1).await
 }
 
-#[test]
-fn rustls_server_with_ffdhe_kx_tls12() {
-    test_rustls_server_with_ffdhe_kx(&TLS12, 1)
+#[tokio::test]
+async fn rustls_server_with_ffdhe_kx_tls12() {
+    let local = LocalSet::new();
+    local
+        .run_until(async {
+            test_rustls_server_with_ffdhe_kx(&TLS12, 1).await;
+        })
+        .await;
 }
 
-fn test_rustls_server_with_ffdhe_kx(
+async fn test_rustls_server_with_ffdhe_kx(
     protocol_version: &'static SupportedProtocolVersion,
     iters: usize,
 ) {
@@ -35,7 +41,7 @@ fn test_rustls_server_with_ffdhe_kx(
     let listener = std::net::TcpListener::bind(("localhost", 0)).unwrap();
     let port = listener.local_addr().unwrap().port();
 
-    let server_thread = std::thread::spawn(move || {
+    let server_thread = tokio::task::spawn_local(async move {
         let config = Arc::new(server_config_with_ffdhe_kx(protocol_version));
         for _ in 0..iters {
             let mut server = rustls::ServerConnection::new(config.clone()).unwrap();
@@ -46,6 +52,7 @@ fn test_rustls_server_with_ffdhe_kx(
                 .unwrap();
             server
                 .complete_io(&mut tcp_stream)
+                .await
                 .unwrap();
             tcp_stream.flush().unwrap();
         }
@@ -72,15 +79,18 @@ fn test_rustls_server_with_ffdhe_kx(
         assert_eq!(buf, message);
     }
 
-    server_thread.join().unwrap();
+    server_thread.await.unwrap();
 }
 
-#[test]
-fn rustls_client_with_ffdhe_kx() {
-    test_rustls_client_with_ffdhe_kx(1);
+#[tokio::test]
+async fn rustls_client_with_ffdhe_kx() {
+    let local = LocalSet::new();
+    local.run_until(async {
+        test_rustls_client_with_ffdhe_kx(1).await;
+    }).await;
 }
 
-fn test_rustls_client_with_ffdhe_kx(iters: usize) {
+async fn test_rustls_client_with_ffdhe_kx(iters: usize) {
     verify_openssl3_available();
 
     let message = "Hello from rustls!\n";
@@ -136,6 +146,7 @@ fn test_rustls_client_with_ffdhe_kx(iters: usize) {
             .unwrap();
         client
             .complete_io(&mut tcp_stream)
+            .await
             .unwrap();
         client.send_close_notify();
         client
@@ -160,22 +171,31 @@ fn client_config_with_ffdhe_kx() -> ClientConfig {
 // While TLS 1.3 requires the shared secret to be padded with zeros.
 // The chance of getting a shared secret with the first byte being zero is 1 in 256,
 // so we repeat the tests to have a high chance of getting a kx with this property.
-#[test]
+#[tokio::test]
 #[ignore]
-fn rustls_client_with_ffdhe_kx_repeated() {
-    test_rustls_client_with_ffdhe_kx(512);
+async fn rustls_client_with_ffdhe_kx_repeated() {
+    let local = LocalSet::new();
+    local.run_until(async {
+        test_rustls_client_with_ffdhe_kx(512).await;
+    }).await;
 }
 
-#[test]
+#[tokio::test]
 #[ignore]
-fn rustls_server_with_ffdhe_tls13_repeated() {
-    test_rustls_server_with_ffdhe_kx(&TLS13, 512)
+async fn rustls_server_with_ffdhe_tls13_repeated() {
+    let local = LocalSet::new();
+    local.run_until(async {
+        test_rustls_server_with_ffdhe_kx(&TLS13, 512).await;
+    }).await;
 }
 
-#[test]
+#[tokio::test]
 #[ignore]
-fn rustls_server_with_ffdhe_tls12_repeated() {
-    test_rustls_server_with_ffdhe_kx(&TLS12, 512);
+async fn rustls_server_with_ffdhe_tls12_repeated() {
+    let local = LocalSet::new();
+    local.run_until(async {
+        test_rustls_server_with_ffdhe_kx(&TLS12, 512).await;
+    }).await;
 }
 
 fn root_ca() -> RootCertStore {
