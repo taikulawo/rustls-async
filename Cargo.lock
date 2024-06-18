@@ -2235,7 +2235,6 @@ dependencies = [
  "serde",
  "serde_json",
  "subtle",
- "tikv-jemallocator",
  "time",
  "tokio",
  "webpki-roots 0.26.2",

@@ -76,7 +76,7 @@ time = { version = "0.3.6", default-features = false }
 webpki-roots = "0.26"
 tokio = { version = "1", features = ["full"] }
 [target.'cfg(not(target_env = "msvc"))'.dev-dependencies]
-tikv-jemallocator = "0.5"
+# tikv-jemallocator = "0.5"
 [[example]]
 name = "bogo_shim"
 path = "examples/internal/bogo_shim.rs"
