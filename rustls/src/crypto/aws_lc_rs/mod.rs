@@ -6,7 +6,7 @@ use alloc::vec::Vec;
 // ring-compatible crate, and `super::ring_shim` to bridge the gaps where they are
 // small.
 pub(crate) use aws_lc_rs as ring_like;
-use pki_types::PrivateKeyDer;
+use pki_types::{CertificateDer, PrivateKeyDer};
 use webpki::aws_lc_rs as webpki_algs;
 
 use crate::crypto::{CryptoProvider, KeyProvider, SecureRandom};
@@ -83,6 +83,7 @@ impl SecureRandom for AwsLcRs {
 impl KeyProvider for AwsLcRs {
     fn load_private_key(
         &self,
+        _cert_chain: &Vec<CertificateDer<'static>>,
         key_der: PrivateKeyDer<'static>,
     ) -> Result<Arc<dyn SigningKey>, Error> {
         sign::any_supported_type(&key_der)

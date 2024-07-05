@@ -73,7 +73,7 @@ impl ConfigBuilder<ServerConfig, WantsServerCert> {
             .state
             .provider
             .key_provider
-            .load_private_key(key_der)?;
+            .load_private_key(&cert_chain, key_der)?;
         let resolver = handy::AlwaysResolvesChain::new(private_key, CertificateChain(cert_chain));
         Ok(self.with_cert_resolver(Arc::new(resolver)))
     }
@@ -99,7 +99,7 @@ impl ConfigBuilder<ServerConfig, WantsServerCert> {
             .state
             .provider
             .key_provider
-            .load_private_key(key_der)?;
+            .load_private_key(&cert_chain, key_der)?;
         let resolver = handy::AlwaysResolvesChain::new_with_extras(
             private_key,
             CertificateChain(cert_chain),
