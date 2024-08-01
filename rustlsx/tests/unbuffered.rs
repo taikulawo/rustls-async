@@ -6,14 +6,14 @@ test_for_each_provider! {
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
-use rustls::client::{ClientConnectionData, EarlyDataError, UnbufferedClientConnection};
-use rustls::server::{ServerConnectionData, UnbufferedServerConnection};
-use rustls::unbuffered::{
+use rustlsx::client::{ClientConnectionData, EarlyDataError, UnbufferedClientConnection};
+use rustlsx::server::{ServerConnectionData, UnbufferedServerConnection};
+use rustlsx::unbuffered::{
     ConnectionState, EncodeError, EncryptError, InsufficientSizeError, UnbufferedConnectionCommon,
     UnbufferedStatus, WriteTraffic,
 };
-use rustls::version::TLS13;
-use rustls::{ClientConfig, ServerConfig, SideData};
+use rustlsx::version::TLS13;
+use rustlsx::{ClientConfig, ServerConfig, SideData};
 
 mod common;
 use common::*;
@@ -22,7 +22,7 @@ const MAX_ITERATIONS: usize = 100;
 
 #[tokio::test]
 async fn tls12_handshake() {
-    let outcome = handshake(&rustls::version::TLS12).await;
+    let outcome = handshake(&rustlsx::version::TLS12).await;
     assert_eq!(
         outcome.client_transcript,
         vec![
@@ -65,7 +65,7 @@ async fn tls12_handshake() {
 
 #[tokio::test]
 async fn tls13_handshake() {
-    let outcome = handshake(&rustls::version::TLS13).await;
+    let outcome = handshake(&rustlsx::version::TLS13).await;
     assert_eq!(
         outcome.client_transcript,
         vec![
@@ -110,7 +110,7 @@ async fn tls13_handshake() {
     );
 }
 
-async fn handshake(version: &'static rustls::SupportedProtocolVersion) -> Outcome {
+async fn handshake(version: &'static rustlsx::SupportedProtocolVersion) -> Outcome {
     let server_config = make_server_config_with_versions(KeyType::Rsa2048, &[version]);
     let client_config = make_client_config(KeyType::Rsa2048);
 
@@ -125,7 +125,7 @@ async fn handshake(version: &'static rustls::SupportedProtocolVersion) -> Outcom
 #[tokio::test]
 async fn app_data_client_to_server() {
     let expected: &[_] = b"hello";
-    for version in rustls::ALL_VERSIONS {
+    for version in rustlsx::ALL_VERSIONS {
         eprintln!("{version:?}");
         let server_config = make_server_config_with_versions(KeyType::Rsa2048, &[version]);
         let client_config = make_client_config(KeyType::Rsa2048);
@@ -157,7 +157,7 @@ async fn app_data_client_to_server() {
 #[tokio::test]
 async fn app_data_server_to_client() {
     let expected: &[_] = b"hello";
-    for version in rustls::ALL_VERSIONS {
+    for version in rustlsx::ALL_VERSIONS {
         eprintln!("{version:?}");
         let server_config = make_server_config_with_versions(KeyType::Rsa2048, &[version]);
         let client_config = make_client_config(KeyType::Rsa2048);
@@ -409,7 +409,7 @@ async fn run(
 
 #[tokio::test]
 async fn close_notify_client_to_server() {
-    for version in rustls::ALL_VERSIONS {
+    for version in rustlsx::ALL_VERSIONS {
         eprintln!("{version:?}");
         let server_config = make_server_config_with_versions(KeyType::Rsa2048, &[version]);
         let client_config = make_client_config(KeyType::Rsa2048);
@@ -433,7 +433,7 @@ async fn close_notify_client_to_server() {
 
 #[tokio::test]
 async fn close_notify_server_to_client() {
-    for version in rustls::ALL_VERSIONS {
+    for version in rustlsx::ALL_VERSIONS {
         eprintln!("{version:?}");
         let server_config = make_server_config_with_versions(KeyType::Rsa2048, &[version]);
         let client_config = make_client_config(KeyType::Rsa2048);
@@ -458,7 +458,7 @@ async fn close_notify_server_to_client() {
 #[tokio::test]
 async fn junk_after_close_notify_received() {
     // cf. test_junk_after_close_notify_received in api.rs
-    let mut outcome = handshake(&rustls::version::TLS13).await;
+    let mut outcome = handshake(&rustlsx::version::TLS13).await;
     let mut client = outcome.client.take().unwrap();
     let mut server = outcome.server.take().unwrap();
 
@@ -859,7 +859,7 @@ impl Buffer {
 }
 
 fn make_connection_pair(
-    version: &'static rustls::SupportedProtocolVersion,
+    version: &'static rustlsx::SupportedProtocolVersion,
 ) -> (UnbufferedClientConnection, UnbufferedServerConnection) {
     let server_config = make_server_config(KeyType::Rsa2048);
     let client_config = make_client_config_with_versions(KeyType::Rsa2048, &[version]);

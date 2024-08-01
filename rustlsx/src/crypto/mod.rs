@@ -50,7 +50,7 @@ pub mod tls13;
 /// Hybrid public key encryption (RFC 9180).
 pub mod hpke;
 
-// Message signing interfaces. Re-exported under rustls::sign. Kept crate-internal here to
+// Message signing interfaces. Re-exported under rustlsx::sign. Kept crate-internal here to
 // avoid having two import paths to the same types.
 pub(crate) mod signer;
 
@@ -123,10 +123,10 @@ pub use crate::suites::CipherSuiteCommon;
 /// # #[cfg(feature = "aws_lc_rs")] {
 /// # use std::sync::Arc;
 /// # mod fictious_hsm_api { pub fn load_private_key(key_der: pki_types::PrivateKeyDer<'static>) -> ! { unreachable!(); } }
-/// use rustls::crypto::aws_lc_rs;
+/// use rustlsx::crypto::aws_lc_rs;
 ///
-/// pub fn provider() -> rustls::crypto::CryptoProvider {
-///   rustls::crypto::CryptoProvider{
+/// pub fn provider() -> rustlsx::crypto::CryptoProvider {
+///   rustlsx::crypto::CryptoProvider{
 ///     key_provider: &HsmKeyLoader,
 ///     ..aws_lc_rs::default_provider()
 ///   }
@@ -135,8 +135,8 @@ pub use crate::suites::CipherSuiteCommon;
 /// #[derive(Debug)]
 /// struct HsmKeyLoader;
 ///
-/// impl rustls::crypto::KeyProvider for HsmKeyLoader {
-///     fn load_private_key(&self, key_der: pki_types::PrivateKeyDer<'static>) -> Result<Arc<dyn rustls::sign::SigningKey>, rustls::Error> {
+/// impl rustlsx::crypto::KeyProvider for HsmKeyLoader {
+///     fn load_private_key(&self, key_der: pki_types::PrivateKeyDer<'static>) -> Result<Arc<dyn rustlsx::sign::SigningKey>, rustlsx::Error> {
 ///          fictious_hsm_api::load_private_key(key_der)
 ///     }
 /// }
@@ -550,7 +550,7 @@ impl From<&[u8]> for SharedSecret {
 ///
 /// ```rust
 /// # #[cfg(feature = "fips")] {
-/// rustls::crypto::default_fips_provider().install_default()
+/// rustlsx::crypto::default_fips_provider().install_default()
 ///     .expect("default provider already set elsewhere");
 /// # }
 /// ```
@@ -559,9 +559,9 @@ impl From<&[u8]> for SharedSecret {
 ///
 /// ```rust
 /// # #[cfg(feature = "fips")] {
-/// # let root_store = rustls::RootCertStore::empty();
-/// let config = rustls::ClientConfig::builder_with_provider(
-///         rustls::crypto::default_fips_provider().into()
+/// # let root_store = rustlsx::RootCertStore::empty();
+/// let config = rustlsx::ClientConfig::builder_with_provider(
+///         rustlsx::crypto::default_fips_provider().into()
 ///     )
 ///     .with_safe_default_protocol_versions()
 ///     .unwrap()

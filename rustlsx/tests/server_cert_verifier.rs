@@ -13,7 +13,7 @@ use common::{
     make_pair_for_arc_configs, make_server_config, ErrorFromPeer, MockServerVerifier,
     ALL_KEY_TYPES,
 };
-use rustls::{AlertDescription, Error, InvalidMessage};
+use rustlsx::{AlertDescription, Error, InvalidMessage};
 
 #[tokio::test]
 async fn client_can_override_certificate_verification() {
@@ -22,7 +22,7 @@ async fn client_can_override_certificate_verification() {
 
         let server_config = Arc::new(make_server_config(*kt));
 
-        for version in rustls::ALL_VERSIONS {
+        for version in rustlsx::ALL_VERSIONS {
             let mut client_config = make_client_config_with_versions(*kt, &[version]);
             client_config
                 .dangerous()
@@ -44,7 +44,7 @@ async fn client_can_override_certificate_verification_and_reject_certificate() {
 
         let server_config = Arc::new(make_server_config(*kt));
 
-        for version in rustls::ALL_VERSIONS {
+        for version in rustlsx::ALL_VERSIONS {
             let mut client_config = make_client_config_with_versions(*kt, &[version]);
             client_config
                 .dangerous()
@@ -70,7 +70,7 @@ async fn client_can_override_certificate_verification_and_reject_certificate() {
 #[tokio::test]
 async fn client_can_override_certificate_verification_and_reject_tls12_signatures() {
     for kt in ALL_KEY_TYPES.iter() {
-        let mut client_config = make_client_config_with_versions(*kt, &[&rustls::version::TLS12]);
+        let mut client_config = make_client_config_with_versions(*kt, &[&rustlsx::version::TLS12]);
         let verifier = Arc::new(MockServerVerifier::rejects_tls12_signatures(
             Error::InvalidMessage(InvalidMessage::HandshakePayloadTooLarge),
         ));
@@ -99,7 +99,7 @@ async fn client_can_override_certificate_verification_and_reject_tls12_signature
 #[tokio::test]
 async fn client_can_override_certificate_verification_and_reject_tls13_signatures() {
     for kt in ALL_KEY_TYPES.iter() {
-        let mut client_config = make_client_config_with_versions(*kt, &[&rustls::version::TLS13]);
+        let mut client_config = make_client_config_with_versions(*kt, &[&rustlsx::version::TLS13]);
         let verifier = Arc::new(MockServerVerifier::rejects_tls13_signatures(
             Error::InvalidMessage(InvalidMessage::HandshakePayloadTooLarge),
         ));
@@ -132,7 +132,7 @@ async fn client_can_override_certificate_verification_and_offer_no_signature_sch
 
         let server_config = Arc::new(make_server_config(*kt));
 
-        for version in rustls::ALL_VERSIONS {
+        for version in rustlsx::ALL_VERSIONS {
             let mut client_config = make_client_config_with_versions(*kt, &[version]);
             client_config
                 .dangerous()
@@ -145,7 +145,7 @@ async fn client_can_override_certificate_verification_and_offer_no_signature_sch
                 errs,
                 Err(vec![
                     ErrorFromPeer::Server(Error::PeerIncompatible(
-                        rustls::PeerIncompatible::NoSignatureSchemesInCommon
+                        rustlsx::PeerIncompatible::NoSignatureSchemesInCommon
                     )),
                     ErrorFromPeer::Client(Error::AlertReceived(AlertDescription::HandshakeFailure)),
                 ])

@@ -11,18 +11,18 @@ use std::{env, fs, net, process, thread, time};
 
 use base64::prelude::{Engine, BASE64_STANDARD};
 use pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime};
-use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
-use rustls::client::{ClientConfig, ClientConnection, Resumption, WebPkiServerVerifier};
+use rustlsx::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
+use rustlsx::client::{ClientConfig, ClientConnection, Resumption, WebPkiServerVerifier};
 #[cfg(all(not(feature = "ring"), feature = "aws_lc_rs"))]
-use rustls::crypto::aws_lc_rs as provider;
+use rustlsx::crypto::aws_lc_rs as provider;
 #[cfg(feature = "ring")]
-use rustls::crypto::ring as provider;
-use rustls::crypto::{CryptoProvider, SupportedKxGroup};
-use rustls::internal::msgs::codec::Codec;
-use rustls::internal::msgs::persist::ServerSessionValue;
-use rustls::server::danger::{ClientCertVerified, ClientCertVerifier};
-use rustls::server::{ClientHello, ServerConfig, ServerConnection, WebPkiClientVerifier};
-use rustls::{
+use rustlsx::crypto::ring as provider;
+use rustlsx::crypto::{CryptoProvider, SupportedKxGroup};
+use rustlsx::internal::msgs::codec::Codec;
+use rustlsx::internal::msgs::persist::ServerSessionValue;
+use rustlsx::server::danger::{ClientCertVerified, ClientCertVerifier};
+use rustlsx::server::{ClientHello, ServerConfig, ServerConnection, WebPkiClientVerifier};
+use rustlsx::{
     client, compress, server, sign, version, AlertDescription, CertificateCompressionAlgorithm,
     CertificateError, Connection, DigitallySignedStruct, DistinguishedName, Error, HandshakeKind,
     InvalidMessage, NamedGroup, PeerIncompatible, PeerMisbehaved, ProtocolVersion, RootCertStore,

@@ -8,13 +8,13 @@ use std::sync::Arc;
 use pki_types::{
     CertificateDer, CertificateRevocationListDer, PrivateKeyDer, ServerName, UnixTime,
 };
-use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
-use rustls::client::{ServerCertVerifierBuilder, WebPkiServerVerifier};
-use rustls::crypto::CryptoProvider;
-use rustls::internal::msgs::codec::Reader;
-use rustls::internal::msgs::message::{Message, OutboundOpaqueMessage, PlainMessage};
-use rustls::server::{ClientCertVerifierBuilder, WebPkiClientVerifier};
-use rustls::{
+use rustlsx::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
+use rustlsx::client::{ServerCertVerifierBuilder, WebPkiServerVerifier};
+use rustlsx::crypto::CryptoProvider;
+use rustlsx::internal::msgs::codec::Reader;
+use rustlsx::internal::msgs::message::{Message, OutboundOpaqueMessage, PlainMessage};
+use rustlsx::server::{ClientCertVerifierBuilder, WebPkiClientVerifier};
+use rustlsx::{
     ClientConfig, ClientConnection, Connection, ConnectionCommon, DigitallySignedStruct, Error,
     ProtocolVersion, RootCertStore, ServerConfig, ServerConnection, SideData, SignatureScheme,
     SupportedCipherSuite,
@@ -382,49 +382,49 @@ impl KeyType {
     }
 }
 
-pub fn server_config_builder() -> rustls::ConfigBuilder<ServerConfig, rustls::WantsVerifier> {
+pub fn server_config_builder() -> rustlsx::ConfigBuilder<ServerConfig, rustlsx::WantsVerifier> {
     // ensure `ServerConfig::builder()` is covered, even though it is
     // equivalent to `builder_with_provider(provider::provider().into())`.
     if exactly_one_provider() {
-        rustls::ServerConfig::builder()
+        rustlsx::ServerConfig::builder()
     } else {
-        rustls::ServerConfig::builder_with_provider(provider::default_provider().into())
+        rustlsx::ServerConfig::builder_with_provider(provider::default_provider().into())
             .with_safe_default_protocol_versions()
             .unwrap()
     }
 }
 
 pub fn server_config_builder_with_versions(
-    versions: &[&'static rustls::SupportedProtocolVersion],
-) -> rustls::ConfigBuilder<ServerConfig, rustls::WantsVerifier> {
+    versions: &[&'static rustlsx::SupportedProtocolVersion],
+) -> rustlsx::ConfigBuilder<ServerConfig, rustlsx::WantsVerifier> {
     if exactly_one_provider() {
-        rustls::ServerConfig::builder_with_protocol_versions(versions)
+        rustlsx::ServerConfig::builder_with_protocol_versions(versions)
     } else {
-        rustls::ServerConfig::builder_with_provider(provider::default_provider().into())
+        rustlsx::ServerConfig::builder_with_provider(provider::default_provider().into())
             .with_protocol_versions(versions)
             .unwrap()
     }
 }
 
-pub fn client_config_builder() -> rustls::ConfigBuilder<ClientConfig, rustls::WantsVerifier> {
+pub fn client_config_builder() -> rustlsx::ConfigBuilder<ClientConfig, rustlsx::WantsVerifier> {
     // ensure `ClientConfig::builder()` is covered, even though it is
     // equivalent to `builder_with_provider(provider::provider().into())`.
     if exactly_one_provider() {
-        rustls::ClientConfig::builder()
+        rustlsx::ClientConfig::builder()
     } else {
-        rustls::ClientConfig::builder_with_provider(provider::default_provider().into())
+        rustlsx::ClientConfig::builder_with_provider(provider::default_provider().into())
             .with_safe_default_protocol_versions()
             .unwrap()
     }
 }
 
 pub fn client_config_builder_with_versions(
-    versions: &[&'static rustls::SupportedProtocolVersion],
-) -> rustls::ConfigBuilder<ClientConfig, rustls::WantsVerifier> {
+    versions: &[&'static rustlsx::SupportedProtocolVersion],
+) -> rustlsx::ConfigBuilder<ClientConfig, rustlsx::WantsVerifier> {
     if exactly_one_provider() {
-        rustls::ClientConfig::builder_with_protocol_versions(versions)
+        rustlsx::ClientConfig::builder_with_protocol_versions(versions)
     } else {
-        rustls::ClientConfig::builder_with_provider(provider::default_provider().into())
+        rustlsx::ClientConfig::builder_with_provider(provider::default_provider().into())
             .with_protocol_versions(versions)
             .unwrap()
     }
@@ -432,7 +432,7 @@ pub fn client_config_builder_with_versions(
 
 pub fn finish_server_config(
     kt: KeyType,
-    conf: rustls::ConfigBuilder<ServerConfig, rustls::WantsVerifier>,
+    conf: rustlsx::ConfigBuilder<ServerConfig, rustlsx::WantsVerifier>,
 ) -> ServerConfig {
     conf.with_no_client_auth()
         .with_single_cert(kt.get_chain(), kt.get_key())
@@ -445,14 +445,14 @@ pub fn make_server_config(kt: KeyType) -> ServerConfig {
 
 pub fn make_server_config_with_versions(
     kt: KeyType,
-    versions: &[&'static rustls::SupportedProtocolVersion],
+    versions: &[&'static rustlsx::SupportedProtocolVersion],
 ) -> ServerConfig {
     finish_server_config(kt, server_config_builder_with_versions(versions))
 }
 
 pub fn make_server_config_with_kx_groups(
     kt: KeyType,
-    kx_groups: Vec<&'static dyn rustls::crypto::SupportedKxGroup>,
+    kx_groups: Vec<&'static dyn rustlsx::crypto::SupportedKxGroup>,
 ) -> ServerConfig {
     finish_server_config(
         kt,
@@ -523,7 +523,7 @@ pub fn make_server_config_with_client_verifier(
 
 pub fn finish_client_config(
     kt: KeyType,
-    config: rustls::ConfigBuilder<ClientConfig, rustls::WantsVerifier>,
+    config: rustlsx::ConfigBuilder<ClientConfig, rustlsx::WantsVerifier>,
 ) -> ClientConfig {
     let mut root_store = RootCertStore::empty();
     let mut rootbuf = io::BufReader::new(kt.bytes_for("ca.cert"));
@@ -538,7 +538,7 @@ pub fn finish_client_config(
 
 pub fn finish_client_config_with_creds(
     kt: KeyType,
-    config: rustls::ConfigBuilder<ClientConfig, rustls::WantsVerifier>,
+    config: rustlsx::ConfigBuilder<ClientConfig, rustlsx::WantsVerifier>,
 ) -> ClientConfig {
     let mut root_store = RootCertStore::empty();
     let mut rootbuf = io::BufReader::new(kt.bytes_for("ca.cert"));
@@ -559,7 +559,7 @@ pub fn make_client_config(kt: KeyType) -> ClientConfig {
 
 pub fn make_client_config_with_kx_groups(
     kt: KeyType,
-    kx_groups: Vec<&'static dyn rustls::crypto::SupportedKxGroup>,
+    kx_groups: Vec<&'static dyn rustlsx::crypto::SupportedKxGroup>,
 ) -> ClientConfig {
     let builder = ClientConfig::builder_with_provider(
         CryptoProvider {
@@ -575,7 +575,7 @@ pub fn make_client_config_with_kx_groups(
 
 pub fn make_client_config_with_versions(
     kt: KeyType,
-    versions: &[&'static rustls::SupportedProtocolVersion],
+    versions: &[&'static rustlsx::SupportedProtocolVersion],
 ) -> ClientConfig {
     finish_client_config(kt, client_config_builder_with_versions(versions))
 }
@@ -586,13 +586,13 @@ pub fn make_client_config_with_auth(kt: KeyType) -> ClientConfig {
 
 pub fn make_client_config_with_versions_with_auth(
     kt: KeyType,
-    versions: &[&'static rustls::SupportedProtocolVersion],
+    versions: &[&'static rustlsx::SupportedProtocolVersion],
 ) -> ClientConfig {
     finish_client_config_with_creds(kt, client_config_builder_with_versions(versions))
 }
 
 pub fn make_client_config_with_verifier(
-    versions: &[&'static rustls::SupportedProtocolVersion],
+    versions: &[&'static rustlsx::SupportedProtocolVersion],
     verifier_builder: ServerCertVerifierBuilder,
 ) -> ClientConfig {
     client_config_builder_with_versions(versions)

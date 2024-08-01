@@ -698,13 +698,13 @@ mod connection {
     /// ```no_run
     /// # #[cfg(feature = "aws_lc_rs")] {
     /// # fn choose_server_config(
-    /// #     _: rustls::server::ClientHello,
-    /// # ) -> std::sync::Arc<rustls::ServerConfig> {
+    /// #     _: rustlsx::server::ClientHello,
+    /// # ) -> std::sync::Arc<rustlsx::ServerConfig> {
     /// #     unimplemented!();
     /// # }
     /// # #[allow(unused_variables)]
     /// # fn main() {
-    /// use rustls::server::{Acceptor, ServerConfig};
+    /// use rustlsx::server::{Acceptor, ServerConfig};
     /// let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     /// for stream in listener.incoming() {
     ///     let mut stream = stream.unwrap();

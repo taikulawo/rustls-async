@@ -9,13 +9,13 @@ test_for_each_provider! {
 
 mod common;
 use common::*;
-use rustls::crypto::CryptoProvider;
-use rustls::internal::msgs::base::Payload;
-use rustls::internal::msgs::codec::Codec;
-use rustls::internal::msgs::handshake::{ClientExtension, HandshakePayload};
-use rustls::internal::msgs::message::{Message, MessagePayload};
-use rustls::version::{TLS12, TLS13};
-use rustls::{CipherSuite, ClientConfig};
+use rustlsx::crypto::CryptoProvider;
+use rustlsx::internal::msgs::base::Payload;
+use rustlsx::internal::msgs::codec::Codec;
+use rustlsx::internal::msgs::handshake::{ClientExtension, HandshakePayload};
+use rustlsx::internal::msgs::message::{Message, MessagePayload};
+use rustlsx::version::{TLS12, TLS13};
+use rustlsx::{CipherSuite, ClientConfig};
 
 #[tokio::test]
 async fn config_builder_for_client_rejects_cipher_suites_without_compatible_kx_groups() {
@@ -44,7 +44,7 @@ async fn config_builder_for_client_rejects_cipher_suites_without_compatible_kx_g
 #[tokio::test]
 async fn ffdhe_ciphersuite() {
     use provider::cipher_suite;
-    use rustls::version::{TLS12, TLS13};
+    use rustlsx::version::{TLS12, TLS13};
 
     let test_cases = [
         (&TLS12, ffdhe::TLS_DHE_RSA_WITH_AES_128_GCM_SHA256),
@@ -54,13 +54,13 @@ async fn ffdhe_ciphersuite() {
     for (expected_protocol, expected_cipher_suite) in test_cases {
         let client_config = finish_client_config(
             KeyType::Rsa2048,
-            rustls::ClientConfig::builder_with_provider(ffdhe::ffdhe_provider().into())
+            rustlsx::ClientConfig::builder_with_provider(ffdhe::ffdhe_provider().into())
                 .with_protocol_versions(&[expected_protocol])
                 .unwrap(),
         );
         let server_config = finish_server_config(
             KeyType::Rsa2048,
-            rustls::ServerConfig::builder_with_provider(ffdhe::ffdhe_provider().into())
+            rustlsx::ServerConfig::builder_with_provider(ffdhe::ffdhe_provider().into())
                 .with_safe_default_protocol_versions()
                 .unwrap(),
         );
@@ -91,14 +91,14 @@ async fn server_picks_ffdhe_group_when_clienthello_has_no_ffdhe_group_in_groups_
 
     let client_config = finish_client_config(
         KeyType::Rsa2048,
-        rustls::ClientConfig::builder_with_provider(ffdhe::ffdhe_provider().into())
-            .with_protocol_versions(&[&rustls::version::TLS12])
+        rustlsx::ClientConfig::builder_with_provider(ffdhe::ffdhe_provider().into())
+            .with_protocol_versions(&[&rustlsx::version::TLS12])
             .unwrap(),
     );
     let server_config = finish_server_config(
         KeyType::Rsa2048,
-        rustls::ServerConfig::builder_with_provider(ffdhe::ffdhe_provider().into())
-            .with_protocol_versions(&[&rustls::version::TLS12])
+        rustlsx::ServerConfig::builder_with_provider(ffdhe::ffdhe_provider().into())
+            .with_protocol_versions(&[&rustlsx::version::TLS12])
             .unwrap(),
     );
 
@@ -123,13 +123,13 @@ async fn server_picks_ffdhe_group_when_clienthello_has_no_groups_ext() {
 
     let client_config = finish_client_config(
         KeyType::Rsa2048,
-        rustls::ClientConfig::builder_with_provider(ffdhe::ffdhe_provider().into())
-            .with_protocol_versions(&[&rustls::version::TLS12])
+        rustlsx::ClientConfig::builder_with_provider(ffdhe::ffdhe_provider().into())
+            .with_protocol_versions(&[&rustlsx::version::TLS12])
             .unwrap(),
     );
     let server_config = finish_server_config(
         KeyType::Rsa2048,
-        rustls::ServerConfig::builder_with_provider(ffdhe::ffdhe_provider().into())
+        rustlsx::ServerConfig::builder_with_provider(ffdhe::ffdhe_provider().into())
             .with_safe_default_protocol_versions()
             .unwrap(),
     );
@@ -142,11 +142,11 @@ async fn server_picks_ffdhe_group_when_clienthello_has_no_groups_ext() {
 
 #[tokio::test]
 async fn server_avoids_dhe_cipher_suites_when_client_has_no_known_dhe_in_groups_ext() {
-    use rustls::{CipherSuite, NamedGroup};
+    use rustlsx::{CipherSuite, NamedGroup};
 
     let client_config = finish_client_config(
         KeyType::Rsa2048,
-        rustls::ClientConfig::builder_with_provider(
+        rustlsx::ClientConfig::builder_with_provider(
             CryptoProvider {
                 cipher_suites: vec![
                     ffdhe::TLS_DHE_RSA_WITH_AES_128_GCM_SHA256,
@@ -166,7 +166,7 @@ async fn server_avoids_dhe_cipher_suites_when_client_has_no_known_dhe_in_groups_
 
     let server_config = finish_server_config(
         KeyType::Rsa2048,
-        rustls::ServerConfig::builder_with_provider(
+        rustlsx::ServerConfig::builder_with_provider(
             CryptoProvider {
                 cipher_suites: vec![
                     ffdhe::TLS_DHE_RSA_WITH_AES_128_GCM_SHA256,
@@ -208,13 +208,13 @@ async fn server_accepts_client_with_no_ecpoints_extension_and_only_ffdhe_cipher_
 
     let client_config = finish_client_config(
         KeyType::Rsa2048,
-        rustls::ClientConfig::builder_with_provider(ffdhe::ffdhe_provider().into())
-            .with_protocol_versions(&[&rustls::version::TLS12])
+        rustlsx::ClientConfig::builder_with_provider(ffdhe::ffdhe_provider().into())
+            .with_protocol_versions(&[&rustlsx::version::TLS12])
             .unwrap(),
     );
     let server_config = finish_server_config(
         KeyType::Rsa2048,
-        rustls::ServerConfig::builder_with_provider(ffdhe::ffdhe_provider().into())
+        rustlsx::ServerConfig::builder_with_provider(ffdhe::ffdhe_provider().into())
             .with_safe_default_protocol_versions()
             .unwrap(),
     );
@@ -229,7 +229,7 @@ async fn server_accepts_client_with_no_ecpoints_extension_and_only_ffdhe_cipher_
 async fn server_avoids_cipher_suite_with_no_common_kx_groups() {
     let server_config = finish_server_config(
         KeyType::Rsa2048,
-        rustls::ServerConfig::builder_with_provider(
+        rustlsx::ServerConfig::builder_with_provider(
             CryptoProvider {
                 cipher_suites: vec![
                     provider::cipher_suite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
@@ -308,7 +308,7 @@ async fn server_avoids_cipher_suite_with_no_common_kx_groups() {
     for (client_kx_groups, protocol_version, expected_cipher_suite) in test_cases {
         let client_config = finish_client_config(
             KeyType::Rsa2048,
-            rustls::ClientConfig::builder_with_provider(
+            rustlsx::ClientConfig::builder_with_provider(
                 CryptoProvider {
                     cipher_suites: vec![
                         provider::cipher_suite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
@@ -341,12 +341,12 @@ async fn server_avoids_cipher_suite_with_no_common_kx_groups() {
 
 mod ffdhe {
     use num_bigint::BigUint;
-    use rustls::crypto::{
+    use rustlsx::crypto::{
         ActiveKeyExchange, CipherSuiteCommon, CryptoProvider, KeyExchangeAlgorithm, SharedSecret,
         SupportedKxGroup,
     };
-    use rustls::ffdhe_groups::FfdheGroup;
-    use rustls::{CipherSuite, NamedGroup, SupportedCipherSuite, Tls12CipherSuite};
+    use rustlsx::ffdhe_groups::FfdheGroup;
+    use rustlsx::{CipherSuite, NamedGroup, SupportedCipherSuite, Tls12CipherSuite};
 
     use super::provider;
 
@@ -364,7 +364,7 @@ mod ffdhe {
     pub const FFDHE2048_KX_GROUP: FfdheKxGroup = FfdheKxGroup(NamedGroup::FFDHE2048);
     pub const FFDHE3072_KX_GROUP: FfdheKxGroup = FfdheKxGroup(NamedGroup::FFDHE3072);
 
-    static FFDHE_CIPHER_SUITES: &[rustls::SupportedCipherSuite] = &[
+    static FFDHE_CIPHER_SUITES: &[rustlsx::SupportedCipherSuite] = &[
         TLS_DHE_RSA_WITH_AES_128_GCM_SHA256,
         provider::cipher_suite::TLS13_CHACHA20_POLY1305_SHA256,
     ];
@@ -390,7 +390,7 @@ mod ffdhe {
     pub struct FfdheKxGroup(pub NamedGroup);
 
     impl SupportedKxGroup for FfdheKxGroup {
-        fn start(&self) -> Result<Box<dyn ActiveKeyExchange>, rustls::Error> {
+        fn start(&self) -> Result<Box<dyn ActiveKeyExchange>, rustlsx::Error> {
             let mut x = vec![0; 64];
             ffdhe_provider()
                 .secure_random
@@ -427,7 +427,7 @@ mod ffdhe {
     }
 
     impl ActiveKeyExchange for ActiveFfdheKx {
-        fn complete(self: Box<Self>, peer_pub_key: &[u8]) -> Result<SharedSecret, rustls::Error> {
+        fn complete(self: Box<Self>, peer_pub_key: &[u8]) -> Result<SharedSecret, rustlsx::Error> {
             let peer_pub = BigUint::from_bytes_be(peer_pub_key);
             let secret = peer_pub.modpow(&self.x, &self.p);
             let secret = to_bytes_be_with_len(secret, self.group.p.len());

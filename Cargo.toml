@@ -1,24 +1,9 @@
 [workspace]
 members = [
-  # CI benchmarks
-  "ci-bench",
-  # Network-based tests
-  "connect-tests",
-  # tests and example code
-  "examples",
-  # Tests that require OpenSSL
-  "openssl-tests",
-  # example of custom provider
-  "provider-example",
   # the main library and tests
-  "rustls",
-  # rustls cryptography provider integration tests
-  "rustls-provider-test",
+  "rustlsx",
 ]
-default-members = [
-  "examples",
-  "rustls",
-]
+default-members = ["rustlsx"]
 exclude = ["admin/rustfmt"]
 resolver = "2"
 

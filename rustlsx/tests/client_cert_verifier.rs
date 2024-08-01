@@ -15,10 +15,10 @@ use common::{
     ErrorFromPeer, KeyType, ALL_KEY_TYPES,
 };
 use pki_types::{CertificateDer, UnixTime};
-use rustls::client::danger::HandshakeSignatureValid;
-use rustls::internal::msgs::handshake::DistinguishedName;
-use rustls::server::danger::{ClientCertVerified, ClientCertVerifier};
-use rustls::{
+use rustlsx::client::danger::HandshakeSignatureValid;
+use rustlsx::internal::msgs::handshake::DistinguishedName;
+use rustlsx::server::danger::{ClientCertVerified, ClientCertVerifier};
+use rustlsx::{
     AlertDescription, ClientConnection, DigitallySignedStruct, Error, InvalidMessage, ServerConfig,
     ServerConnection, SignatureScheme,
 };
@@ -56,7 +56,7 @@ async fn client_verifier_works() {
         let server_config = server_config_with_verifier(*kt, client_verifier);
         let server_config = Arc::new(server_config);
 
-        for version in rustls::ALL_VERSIONS {
+        for version in rustlsx::ALL_VERSIONS {
             let client_config = make_client_config_with_versions_with_auth(*kt, &[version]);
             let (mut client, mut server) =
                 make_pair_for_arc_configs(&Arc::new(client_config.clone()), &server_config);
@@ -75,7 +75,7 @@ async fn client_verifier_no_schemes() {
         let server_config = server_config_with_verifier(*kt, client_verifier);
         let server_config = Arc::new(server_config);
 
-        for version in rustls::ALL_VERSIONS {
+        for version in rustlsx::ALL_VERSIONS {
             let client_config = make_client_config_with_versions_with_auth(*kt, &[version]);
             let (mut client, mut server) =
                 make_pair_for_arc_configs(&Arc::new(client_config.clone()), &server_config);
@@ -98,7 +98,7 @@ async fn client_verifier_no_auth_yes_root() {
         let server_config = server_config_with_verifier(*kt, client_verifier);
         let server_config = Arc::new(server_config);
 
-        for version in rustls::ALL_VERSIONS {
+        for version in rustlsx::ALL_VERSIONS {
             let client_config = make_client_config_with_versions(*kt, &[version]);
             let mut server = ServerConnection::new(Arc::clone(&server_config)).unwrap();
             let mut client =
@@ -118,14 +118,14 @@ async fn client_verifier_no_auth_yes_root() {
 }
 
 #[tokio::test]
-// Triple checks we propagate the rustls::Error through
+// Triple checks we propagate the rustlsx::Error through
 async fn client_verifier_fails_properly() {
     for kt in ALL_KEY_TYPES.iter() {
         let client_verifier = MockClientVerifier::new(ver_err, *kt);
         let server_config = server_config_with_verifier(*kt, client_verifier);
         let server_config = Arc::new(server_config);
 
-        for version in rustls::ALL_VERSIONS {
+        for version in rustlsx::ALL_VERSIONS {
             let client_config = make_client_config_with_versions_with_auth(*kt, &[version]);
             let mut server = ServerConnection::new(Arc::clone(&server_config)).unwrap();
             let mut client =

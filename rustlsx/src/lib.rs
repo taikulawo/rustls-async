@@ -137,7 +137,7 @@
 //!
 //! ```rust,no_run
 //! # #[cfg(feature = "aws-lc-rs")] {
-//! let root_store = rustls::RootCertStore::from_iter(
+//! let root_store = rustlsx::RootCertStore::from_iter(
 //!     webpki_roots::TLS_SERVER_ROOTS
 //!         .iter()
 //!         .cloned(),
@@ -152,8 +152,8 @@
 //!
 //! ```rust,no_run
 //! # #[cfg(feature = "aws_lc_rs")] {
-//! # let root_store: rustls::RootCertStore = panic!();
-//! let config = rustls::ClientConfig::builder()
+//! # let root_store: rustlsx::RootCertStore = panic!();
+//! let config = rustlsx::ClientConfig::builder()
 //!     .with_root_certificates(root_store)
 //!     .with_no_client_auth();
 //! # }
@@ -167,18 +167,18 @@
 //! # use rustls;
 //! # use webpki;
 //! # use std::sync::Arc;
-//! # rustls::crypto::aws_lc_rs::default_provider().install_default();
-//! # let root_store = rustls::RootCertStore::from_iter(
+//! # rustlsx::crypto::aws_lc_rs::default_provider().install_default();
+//! # let root_store = rustlsx::RootCertStore::from_iter(
 //! #  webpki_roots::TLS_SERVER_ROOTS
 //! #      .iter()
 //! #      .cloned(),
 //! # );
-//! # let config = rustls::ClientConfig::builder()
+//! # let config = rustlsx::ClientConfig::builder()
 //! #     .with_root_certificates(root_store)
 //! #     .with_no_client_auth();
 //! let rc_config = Arc::new(config);
 //! let example_com = "example.com".try_into().unwrap();
-//! let mut client = rustls::ClientConnection::new(rc_config, example_com);
+//! let mut client = rustlsx::ClientConnection::new(rc_config, example_com);
 //! # }
 //! ```
 //!
@@ -207,7 +207,7 @@
 //!
 //! ```rust,no_run
 //! # #[cfg(feature = "aws_lc_rs")] {
-//! # let mut client = rustls::ClientConnection::new(panic!(), panic!()).unwrap();
+//! # let mut client = rustlsx::ClientConnection::new(panic!(), panic!()).unwrap();
 //! # struct Socket { }
 //! # impl Socket {
 //! #   fn ready_for_write(&self) -> bool { false }
@@ -228,7 +228,7 @@
 //! #   panic!();
 //! # }
 //! use std::io;
-//! use rustls::Connection;
+//! use rustlsx::Connection;
 //!
 //! client.writer().write(b"GET / HTTP/1.0\r\n\r\n").unwrap();
 //! let mut socket = connect("example.com", 443);
@@ -265,7 +265,7 @@
 //! they mean.
 //!
 //! - `aws_lc_rs` (enabled by default): makes the rustls crate depend on the [`aws-lc-rs`] crate.
-//!   Use `rustls::crypto::aws_lc_rs::default_provider().install_default()` to
+//!   Use `rustlsx::crypto::aws_lc_rs::default_provider().install_default()` to
 //!   use it as the default `CryptoProvider`, or provide it explicitly
 //!   when making a `ClientConfig` or `ServerConfig`.
 //!
@@ -273,7 +273,7 @@
 //!   See [the documentation](https://aws.github.io/aws-lc-rs/requirements/index.html) for details.
 //!
 //! - `ring`: makes the rustls crate depend on the *ring* crate for cryptography.
-//!   Use `rustls::crypto::ring::default_provider().install_default()` to
+//!   Use `rustlsx::crypto::ring::default_provider().install_default()` to
 //!   use it as the default `CryptoProvider`, or provide it explicitly
 //!   when making a `ClientConfig` or `ServerConfig`.
 //!

@@ -16,7 +16,7 @@ rustls = { version = "0.23", features = [ "fips" ] }
 This is [`default_fips_provider()`]:
 
 ```rust,ignore
-rustls::crypto::default_fips_provider()
+rustlsx::crypto::default_fips_provider()
     .install_default()
     .expect("default provider already set elsewhere");
 ```
