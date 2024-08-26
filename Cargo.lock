@@ -2386,6 +2386,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustlsx"
+version = "0.23.12"
+dependencies = [
+ "async-trait",
+ "aws-lc-rs",
+ "base64",
+ "bencher",
+ "brotli",
+ "brotli-decompressor",
+ "clap",
+ "env_logger",
+ "hashbrown",
+ "hex",
+ "log",
+ "num-bigint",
+ "once_cell",
+ "rcgen",
+ "ring",
+ "rustls-pemfile",
+ "rustls-pki-types",
+ "rustls-webpki",
+ "rustversion",
+ "serde",
+ "serde_json",
+ "subtle",
+ "tikv-jemallocator",
+ "time",
+ "tokio",
+ "webpki-roots",
+ "zeroize",
+ "zlib-rs",
+]
+
+[[package]]
 name = "rustversion"
 version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"

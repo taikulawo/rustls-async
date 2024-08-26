@@ -12,6 +12,7 @@ members = [
   "openssl-tests",
   # example of custom provider
   "provider-example",
+  "rustlsx",
   # the main library and tests
   "rustls",
   # rustls cryptography provider integration tests
