@@ -12,9 +12,6 @@ mod tests_with_ring {
     use super::*;
 
     provider_ring!();
-
-    #[path = "../api.rs"]
-    mod tests;
 }
 
 #[cfg(feature = "aws_lc_rs")]
@@ -23,9 +20,6 @@ mod tests_with_aws_lc_rs {
     use super::*;
 
     provider_aws_lc_rs!();
-
-    #[path = "../api.rs"]
-    mod tests;
 }
 
 // this must be outside tests_with_*, as we want

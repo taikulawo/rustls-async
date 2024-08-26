@@ -120,7 +120,8 @@ async fn handshake(version: &'static rustls::SupportedProtocolVersion) -> Outcom
         &mut NO_ACTIONS.clone(),
         Arc::new(server_config),
         &mut NO_ACTIONS.clone(),
-    ).await
+    )
+    .await
 }
 
 #[tokio::test]
@@ -141,7 +142,8 @@ async fn app_data_client_to_server() {
             &mut client_actions,
             Arc::new(server_config),
             &mut NO_ACTIONS.clone(),
-        ).await;
+        )
+        .await;
 
         assert!(client_actions
             .app_data_to_send
@@ -173,7 +175,8 @@ async fn app_data_server_to_client() {
             &mut NO_ACTIONS.clone(),
             Arc::new(server_config),
             &mut server_actions,
-        ).await;
+        )
+        .await;
 
         assert!(server_actions
             .app_data_to_send
@@ -205,7 +208,8 @@ async fn early_data() {
         &mut NO_ACTIONS.clone(),
         server_config.clone(),
         &mut NO_ACTIONS.clone(),
-    ).await;
+    )
+    .await;
 
     let mut client_actions = Actions {
         early_data_to_send: Some(expected),
@@ -217,7 +221,8 @@ async fn early_data() {
         &mut client_actions,
         server_config.clone(),
         &mut NO_ACTIONS.clone(),
-    ).await;
+    )
+    .await;
 
     assert_eq!(
         outcome.client_transcript,
@@ -294,7 +299,9 @@ async fn run(
             &mut buffers.client,
             *client_actions,
             &mut outcome.client_transcript,
-        ).await {
+        )
+        .await
+        {
             State::EncodedTlsData => {}
             State::TransmitTlsData {
                 sent_early_data,
@@ -348,7 +355,9 @@ async fn run(
             &mut buffers.server,
             *server_actions,
             &mut outcome.server_transcript,
-        ).await {
+        )
+        .await
+        {
             State::EncodedTlsData => {}
             State::TransmitTlsData {
                 sent_app_data,
@@ -439,7 +448,8 @@ async fn close_notify_client_to_server() {
             &mut client_actions,
             Arc::new(server_config),
             &mut NO_ACTIONS.clone(),
-        ).await;
+        )
+        .await;
 
         assert!(!client_actions.send_close_notify);
         assert!(outcome.server_reached_connection_closed_state);
@@ -463,7 +473,8 @@ async fn close_notify_server_to_client() {
             &mut NO_ACTIONS.clone(),
             Arc::new(server_config),
             &mut server_actions,
-        ).await;
+        )
+        .await;
 
         assert!(!server_actions.send_close_notify);
         assert!(outcome.client_reached_connection_closed_state);
@@ -479,7 +490,9 @@ async fn junk_after_close_notify_received() {
 
     let mut client_send_buf = [0u8; 128];
     let mut len = dbg!(write_traffic(
-        client.process_tls_records(&mut []).await,
+        client
+            .process_tls_records(&mut [])
+            .await,
         |mut wt: WriteTraffic<_>| wt.queue_close_notify(&mut client_send_buf),
     )
     .unwrap());
@@ -487,7 +500,11 @@ async fn junk_after_close_notify_received() {
     client_send_buf[len..len + 4].copy_from_slice(&[0x17, 0x03, 0x03, 0x01]);
     len += 4;
 
-    let discard = match dbg!(server.process_tls_records(dbg!(&mut client_send_buf[..len])).await) {
+    let discard = match dbg!(
+        server
+            .process_tls_records(dbg!(&mut client_send_buf[..len]))
+            .await
+    ) {
         UnbufferedStatus {
             discard,
             state: Ok(ConnectionState::Closed),
@@ -501,19 +518,20 @@ async fn junk_after_close_notify_received() {
     };
 
     // further data in client_send_buf is ignored
-    let UnbufferedStatus { discard, .. } =
-        server.process_tls_records(dbg!(&mut client_send_buf[discard..len])).await;
+    let UnbufferedStatus { discard, .. } = server
+        .process_tls_records(dbg!(&mut client_send_buf[discard..len]))
+        .await;
     assert_eq!(discard, 0);
 }
 
-#[test]
-fn queue_close_notify_is_idempotent() {
-    let mut outcome = handshake(&rustls::version::TLS13);
+#[tokio::test]
+async fn queue_close_notify_is_idempotent() {
+    let mut outcome = handshake(&rustls::version::TLS13).await;
     let mut client = outcome.client.take().unwrap();
 
     let mut client_send_buf = [0u8; 128];
     let (len_first, len_second) = write_traffic(
-        client.process_tls_records(&mut []),
+        client.process_tls_records(&mut []).await,
         |mut wt: WriteTraffic<_>| {
             (
                 wt.queue_close_notify(&mut client_send_buf),
@@ -526,12 +544,12 @@ fn queue_close_notify_is_idempotent() {
     assert_eq!(len_second.unwrap(), 0);
 }
 
-#[test]
-fn refresh_traffic_keys_on_tls12_connection() {
-    let mut outcome = handshake(&rustls::version::TLS12);
+#[tokio::test]
+async fn refresh_traffic_keys_on_tls12_connection() {
+    let mut outcome = handshake(&rustls::version::TLS12).await;
     let mut client = outcome.client.take().unwrap();
 
-    match client.process_tls_records(&mut []) {
+    match client.process_tls_records(&mut []).await {
         UnbufferedStatus {
             discard: 0,
             state: Ok(ConnectionState::WriteTraffic(wt)),
@@ -547,13 +565,13 @@ fn refresh_traffic_keys_on_tls12_connection() {
     };
 }
 
-#[test]
-fn refresh_traffic_keys_manually() {
-    let mut outcome = handshake(&rustls::version::TLS13);
+#[tokio::test]
+async fn refresh_traffic_keys_manually() {
+    let mut outcome = handshake(&rustls::version::TLS13).await;
     let mut client = outcome.client.take().unwrap();
     let mut server = outcome.server.take().unwrap();
 
-    match client.process_tls_records(&mut []) {
+    match client.process_tls_records(&mut []).await {
         UnbufferedStatus {
             discard: 0,
             state: Ok(ConnectionState::WriteTraffic(wt)),
@@ -566,7 +584,7 @@ fn refresh_traffic_keys_manually() {
     };
 
     let mut buffer = [0u8; 64];
-    let used = match client.process_tls_records(&mut []) {
+    let used = match client.process_tls_records(&mut []).await {
         UnbufferedStatus {
             discard: 0,
             state: Ok(ConnectionState::EncodeTlsData(mut etd)),
@@ -579,7 +597,7 @@ fn refresh_traffic_keys_manually() {
         }
     };
 
-    match client.process_tls_records(&mut []) {
+    match client.process_tls_records(&mut []).await {
         UnbufferedStatus {
             discard: 0,
             state: Ok(ConnectionState::TransmitTlsData(ttd)),
@@ -592,7 +610,7 @@ fn refresh_traffic_keys_manually() {
     };
 
     println!("server WriteTraffic");
-    let used = match server.process_tls_records(&mut buffer[..used]) {
+    let used = match server.process_tls_records(&mut buffer[..used]).await {
         UnbufferedStatus {
             discard: actual_used,
             state: Ok(ConnectionState::WriteTraffic(mut wt)),
@@ -607,7 +625,7 @@ fn refresh_traffic_keys_manually() {
     };
 
     println!("client recv");
-    match client.process_tls_records(&mut buffer[..used]) {
+    match client.process_tls_records(&mut buffer[..used]).await {
         UnbufferedStatus {
             discard: actual_used,
             state: Ok(ConnectionState::ReadTraffic(mut rt)),
@@ -622,7 +640,7 @@ fn refresh_traffic_keys_manually() {
     };
 
     println!("client reply");
-    let used = match client.process_tls_records(&mut []) {
+    let used = match client.process_tls_records(&mut []).await {
         UnbufferedStatus {
             discard: 0,
             state: Ok(ConnectionState::WriteTraffic(mut wt)),
@@ -634,7 +652,7 @@ fn refresh_traffic_keys_manually() {
         }
     };
 
-    match server.process_tls_records(&mut buffer[..used]) {
+    match server.process_tls_records(&mut buffer[..used]).await {
         UnbufferedStatus {
             discard: actual_used,
             state: Ok(ConnectionState::ReadTraffic(mut rt)),
@@ -649,8 +667,8 @@ fn refresh_traffic_keys_manually() {
     };
 }
 
-#[test]
-fn refresh_traffic_keys_automatically() {
+#[tokio::test]
+async fn refresh_traffic_keys_automatically() {
     const fn encrypted_size(body: usize) -> usize {
         let padding = 1;
         let header = 5;
@@ -675,11 +693,12 @@ fn refresh_traffic_keys_automatically() {
         &mut NO_ACTIONS.clone(),
         Arc::new(server_config),
         &mut NO_ACTIONS.clone(),
-    );
+    )
+    .await;
     let mut server = outcome.server.take().unwrap();
     let mut client = outcome.client.take().unwrap();
 
-    match client.process_tls_records(&mut []) {
+    match client.process_tls_records(&mut []).await {
         UnbufferedStatus {
             discard: 0,
             state: Ok(ConnectionState::WriteTraffic(mut wt)),
@@ -705,7 +724,7 @@ fn refresh_traffic_keys_automatically() {
                     }
                 );
 
-                match server.process_tls_records(&mut buffer[..used]) {
+                match server.process_tls_records(&mut buffer[..used]).await {
                     UnbufferedStatus {
                         discard: actual_used,
                         state: Ok(ConnectionState::ReadTraffic(mut rt)),
@@ -727,8 +746,8 @@ fn refresh_traffic_keys_automatically() {
     };
 }
 
-#[test]
-fn tls12_connection_fails_after_key_reaches_confidentiality_limit() {
+#[tokio::test]
+async fn tls12_connection_fails_after_key_reaches_confidentiality_limit() {
     const CONFIDENTIALITY_LIMIT: usize = 1024;
 
     let client_config = finish_client_config(
@@ -744,11 +763,15 @@ fn tls12_connection_fails_after_key_reaches_confidentiality_limit() {
         &mut NO_ACTIONS.clone(),
         Arc::new(server_config),
         &mut NO_ACTIONS.clone(),
-    );
+    )
+    .await;
     let mut server = outcome.server.take().unwrap();
     let mut client = outcome.client.take().unwrap();
 
-    match client.process_tls_records(&mut []) {
+    match client
+        .process_tls_records(&mut [])
+        .await
+    {
         UnbufferedStatus {
             discard: 0,
             state: Ok(ConnectionState::WriteTraffic(mut wt)),
@@ -765,7 +788,7 @@ fn tls12_connection_fails_after_key_reaches_confidentiality_limit() {
                     rc @ Err(_) => rc.unwrap(),
                 };
 
-                match server.process_tls_records(&mut buffer[..used]) {
+                match server.process_tls_records(&mut buffer[..used]).await {
                     UnbufferedStatus {
                         discard: actual_used,
                         state: Ok(ConnectionState::ReadTraffic(mut rt)),
@@ -786,10 +809,10 @@ fn tls12_connection_fails_after_key_reaches_confidentiality_limit() {
         }
     };
 
-    let (mut data, _) = encode_tls_data(client.process_tls_records(&mut []));
+    let (mut data, _) = encode_tls_data(client.process_tls_records(&mut []).await);
     let data_len = data.len();
 
-    match server.process_tls_records(&mut data) {
+    match server.process_tls_records(&mut data).await {
         UnbufferedStatus {
             discard,
             state: Ok(ConnectionState::Closed),
@@ -798,8 +821,8 @@ fn tls12_connection_fails_after_key_reaches_confidentiality_limit() {
     }
 }
 
-#[test]
-fn tls13_packed_handshake() {
+#[tokio::test]
+async fn tls13_packed_handshake() {
     // transcript requires selection of X25519
     if provider_is_fips() {
         return;
@@ -816,28 +839,44 @@ fn tls13_packed_handshake() {
     let mut client =
         UnbufferedClientConnection::new(Arc::new(client_config), server_name("localhost")).unwrap();
 
-    let (_hello, _) = encode_tls_data(client.process_tls_records(&mut []));
-    confirm_transmit_tls_data(client.process_tls_records(&mut []));
+    let (_hello, _) = encode_tls_data(
+        client
+            .process_tls_records(&mut [])
+            .await,
+    );
+    confirm_transmit_tls_data(
+        client
+            .process_tls_records(&mut [])
+            .await,
+    );
 
     let mut first_flight = include_bytes!("data/bug2040-message-1.bin").to_vec();
-    let (_ccs, discard) = encode_tls_data(client.process_tls_records(&mut first_flight[..]));
+    let (_ccs, discard) = encode_tls_data(
+        client
+            .process_tls_records(&mut first_flight[..])
+            .await,
+    );
     assert_eq!(discard, first_flight.len());
 
     let mut second_flight = include_bytes!("data/bug2040-message-2.bin").to_vec();
-    let UnbufferedStatus { state, .. } = client.process_tls_records(&mut second_flight[..]);
+    let UnbufferedStatus { state, .. } = client
+        .process_tls_records(&mut second_flight[..])
+        .await;
     assert_eq!(
         state.unwrap_err(),
         Error::InvalidCertificate(CertificateError::UnknownIssuer)
     );
 }
 
-#[test]
-fn rejects_junk() {
+#[tokio::test]
+async fn rejects_junk() {
     let mut server =
         UnbufferedServerConnection::new(Arc::new(make_server_config(KeyType::Rsa2048))).unwrap();
 
     let mut buf = [0xff; 5];
-    let UnbufferedStatus { discard, state } = server.process_tls_records(&mut buf);
+    let UnbufferedStatus { discard, state } = server
+        .process_tls_records(&mut buf)
+        .await;
     assert_eq!(discard, 0);
     assert_eq!(
         state.unwrap_err(),
@@ -845,7 +884,11 @@ fn rejects_junk() {
     );
 
     // sends alert
-    let (data, _) = encode_tls_data(server.process_tls_records(&mut []));
+    let (data, _) = encode_tls_data(
+        server
+            .process_tls_records(&mut [])
+            .await,
+    );
     assert_eq!(
         data,
         &[
@@ -858,7 +901,11 @@ fn rejects_junk() {
             u8::from(AlertDescription::DecodeError)
         ]
     );
-    confirm_transmit_tls_data(server.process_tls_records(&mut []));
+    confirm_transmit_tls_data(
+        server
+            .process_tls_records(&mut [])
+            .await,
+    );
 }
 
 fn write_traffic<T: SideData, R, F: FnMut(WriteTraffic<T>) -> R>(
@@ -973,7 +1020,9 @@ async fn advance_client(
     actions: Actions<'_>,
     transcript: &mut Vec<String>,
 ) -> State {
-    let UnbufferedStatus { discard, state } = conn.process_tls_records(buffers.incoming.filled()).await;
+    let UnbufferedStatus { discard, state } = conn
+        .process_tls_records(buffers.incoming.filled())
+        .await;
 
     transcript.push(format!("{:?}", state));
 
@@ -1019,7 +1068,9 @@ async fn advance_server(
     actions: Actions<'_>,
     transcript: &mut Vec<String>,
 ) -> State {
-    let UnbufferedStatus { discard, state } = conn.process_tls_records(buffers.incoming.filled()).await;
+    let UnbufferedStatus { discard, state } = conn
+        .process_tls_records(buffers.incoming.filled())
+        .await;
 
     transcript.push(format!("{:?}", state));
 
@@ -1281,7 +1332,9 @@ async fn server_receives_handshake_byte_by_byte() {
     let (mut client, mut server) = make_connection_pair(&TLS13);
 
     let mut client_hello_buffer = vec![0u8; 1024];
-    let UnbufferedStatus { discard, state } = client.process_tls_records(&mut []).await;
+    let UnbufferedStatus { discard, state } = client
+        .process_tls_records(&mut [])
+        .await;
 
     assert_eq!(discard, 0);
     match state.unwrap() {
@@ -1297,14 +1350,16 @@ async fn server_receives_handshake_byte_by_byte() {
     println!("client hello: {:?}", client_hello_buffer);
 
     for prefix in 0..client_hello_buffer.len() - 1 {
-        let UnbufferedStatus { discard, state } =
-            server.process_tls_records(&mut client_hello_buffer[..prefix]).await;
+        let UnbufferedStatus { discard, state } = server
+            .process_tls_records(&mut client_hello_buffer[..prefix])
+            .await;
         println!("prefix {prefix:?}: ({discard:?}, {state:?}");
         assert!(matches!(state.unwrap(), ConnectionState::BlockedHandshake));
     }
 
-    let UnbufferedStatus { discard, state } =
-        server.process_tls_records(&mut client_hello_buffer[..]).await;
+    let UnbufferedStatus { discard, state } = server
+        .process_tls_records(&mut client_hello_buffer[..])
+        .await;
 
     assert!(matches!(state.unwrap(), ConnectionState::EncodeTlsData(_)));
     assert_eq!(client_hello_buffer.len(), discard);
@@ -1317,7 +1372,9 @@ async fn server_receives_incorrect_first_handshake_message() {
     let mut junk_buffer = [0x16, 0x3, 0x1, 0x0, 0x4, 0xff, 0x0, 0x0, 0x0];
     let junk_buffer_len = junk_buffer.len();
 
-    let UnbufferedStatus { discard, state } = server.process_tls_records(&mut junk_buffer[..]).await;
+    let UnbufferedStatus { discard, state } = server
+        .process_tls_records(&mut junk_buffer[..])
+        .await;
 
     assert_eq!(discard, junk_buffer_len);
     assert_eq!(
@@ -1325,7 +1382,9 @@ async fn server_receives_incorrect_first_handshake_message() {
         "Err(InappropriateHandshakeMessage { expect_types: [ClientHello], got_type: Unknown(255) })"
     );
 
-    let UnbufferedStatus { discard, state } = server.process_tls_records(&mut []).await;
+    let UnbufferedStatus { discard, state } = server
+        .process_tls_records(&mut [])
+        .await;
     assert_eq!(discard, 0);
 
     match state.unwrap() {

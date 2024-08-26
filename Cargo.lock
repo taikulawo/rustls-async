@@ -498,7 +498,6 @@ dependencies = [
  "rustls 0.23.12",
  "rustls-pemfile",
  "rustls-pki-types",
- "rustls-post-quantum",
 ]
 
 [[package]]
@@ -2229,13 +2228,14 @@ dependencies = [
  "ring",
  "rustls-pemfile",
  "rustls-pki-types",
- "rustls-post-quantum",
  "rustls-webpki",
  "rustversion",
  "serde",
  "serde_json",
  "subtle",
+ "tikv-jemallocator",
  "time",
+ "tokio",
  "webpki-roots",
  "zeroize",
  "zlib-rs",
@@ -2335,16 +2335,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc0a2ce646f8655401bb81e7927b812614bd5d91dbc968696be50603510fcaf0"
 
 [[package]]
-name = "rustls-post-quantum"
-version = "0.1.0"
-dependencies = [
- "aws-lc-rs",
- "env_logger",
- "rustls 0.23.12",
- "webpki-roots",
-]
-
-[[package]]
 name = "rustls-provider-example"
 version = "0.0.1"
 dependencies = [
@@ -2367,6 +2357,7 @@ dependencies = [
  "rustls-webpki",
  "sha2",
  "signature",
+ "tokio",
  "webpki-roots",
  "x25519-dalek",
 ]
@@ -2684,6 +2675,7 @@ dependencies = [
  "bytes",
  "libc",
  "mio 1.0.2",
+ "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2 0.5.7",
@@ -3210,6 +3202,6 @@ dependencies = [
 
 [[package]]
 name = "zlib-rs"
-version = "0.2.1"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e942bb8453553ee59b701f977d5331a512f8dd07906153bbe050cb9bb58a4811"
+checksum = "c52105e2dc6760ec88755876659dc301b51f6728f3b7a1bbdeeb66c6af4d44a1"

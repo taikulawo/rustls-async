@@ -84,7 +84,7 @@ impl ConfigBuilder<ServerConfig, WantsServerCert> {
             Err(err) => return Err(err),
         }
 
-        let resolver = handy::AlwaysResolvesChain::new(private_key);
+        let resolver = handy::AlwaysResolvesChain::new(certified_key);
         Ok(self.with_cert_resolver(Arc::new(resolver)))
     }
 

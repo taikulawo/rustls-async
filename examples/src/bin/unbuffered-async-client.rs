@@ -61,7 +61,7 @@ async fn converse(
     let mut iter_count = 0;
     while !(peer_closed || (we_closed && incoming_used == 0)) {
         let UnbufferedStatus { mut discard, state } =
-            conn.process_tls_records(&mut incoming_tls[..incoming_used]);
+            conn.process_tls_records(&mut incoming_tls[..incoming_used]).await;
 
         match dbg!(state.unwrap()) {
             ConnectionState::ReadTraffic(mut state) => {
