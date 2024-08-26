@@ -82,7 +82,8 @@ webpki-roots = "0.26"
 tokio = { version = "1", features = ["full"] }
 [target.'cfg(not(target_env = "msvc"))'.dev-dependencies]
 tikv-jemallocator = "0.6"
-
+[lib]
+doctest = false
 [[bench]]
 name = "benchmarks"
 path = "benches/benchmarks.rs"
