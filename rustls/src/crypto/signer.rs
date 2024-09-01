@@ -73,7 +73,7 @@ pub trait SigningKey: Debug + Send + Sync {
 }
 
 /// A thing that can sign a message.
-#[async_trait]
+#[async_trait(?Send)]
 pub trait Signer: Debug + Send + Sync {
     /// Signs `message` using the selected scheme.
     ///

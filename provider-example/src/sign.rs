@@ -43,7 +43,7 @@ impl SigningKey for EcdsaSigningKeyP256 {
         SignatureAlgorithm::ECDSA
     }
 }
-#[async_trait]
+#[async_trait(?Send)]
 impl Signer for EcdsaSigningKeyP256 {
     async fn sign(&self, message: &[u8]) -> Result<Vec<u8>, rustls::Error> {
         self.key

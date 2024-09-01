@@ -169,7 +169,7 @@ impl RsaSigner {
         })
     }
 }
-#[async_trait]
+#[async_trait(?Send)]
 impl Signer for RsaSigner {
     async fn sign(&self, message: &[u8]) -> Result<Vec<u8>, Error> {
         let mut sig = vec![0; self.key.public().modulus_len()];
@@ -317,7 +317,7 @@ struct EcdsaSigner {
     key: Arc<EcdsaKeyPair>,
     scheme: SignatureScheme,
 }
-#[async_trait]
+#[async_trait(?Send)]
 impl Signer for EcdsaSigner {
     async fn sign(&self, message: &[u8]) -> Result<Vec<u8>, Error> {
         let rng = SystemRandom::new();
@@ -405,7 +405,7 @@ struct Ed25519Signer {
     key: Arc<Ed25519KeyPair>,
     scheme: SignatureScheme,
 }
-#[async_trait]
+#[async_trait(?Send)]
 impl Signer for Ed25519Signer {
     async fn sign(&self, message: &[u8]) -> Result<Vec<u8>, Error> {
         Ok(self.key.sign(message).as_ref().into())
